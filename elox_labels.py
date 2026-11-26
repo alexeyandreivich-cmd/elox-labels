@@ -2,7 +2,8 @@
 """
 Генератор этикеток (Data Sheet) и протоколов ПСИ систем соединительных АО "ЭЛОКС-ПРОМ".
 Справочник типов и кодов — из файла 4.pdf. Макеты: этикетка (альбомный, 2 колонки),
-ПСИ (портретный, таблица испытаний). Логотип вшивается в exe через --add-data "logo.png;.".
+ПСИ (портретный, таблица испытаний, шрифт Times как в образцах P1ru/P1en).
+Логотип вшивается в exe через --add-data "logo.png;.".
 Сборка: pyinstaller --onefile --noconsole --add-data "logo.png;." --name EloxLabels elox_labels.py
 """
 
@@ -33,6 +34,7 @@ APP_TITLE = "ЭЛОКС-ПРОМ — генератор этикеток / Data 
 START_ROW_DEFAULT = 3
 COL_NAME, COL_QTY, COL_KKS, COL_UNIT, COL_POS = 4, 6, 7, 9, 2
 NB = "\u00a0"
+DASH = "\u2013"  # прочерк для пустых строк ПСИ
 
 # =============================================================================
 #  СПРАВОЧНИК ИЗ 4.pdf
@@ -52,7 +54,7 @@ TYPES_TABLE = [
     ("ЕА-А10",       "ЕР.1.012.00-00 ЭТ", "ЕР.1.012.00-00 DS", "ED.S.A940.1.0UJA&&.JML&&&.092.ZB.0012.R", "ED.S.A940.1.0UJA&&.JML&&&.092.ZB.0012.E"),
     ("ЕА-А12",       "ЕР.1.013.00-00 ЭТ", "ЕР.1.013.00-00 DS", "ED.S.A940.1.0UJA&&.JML&&&.092.ZB.0013.R", "ED.S.A940.1.0UJA&&.JML&&&.092.ZB.0013.E"),
     ("ЕА-А14",       "ЕР.1.014.00-00 ЭТ", "ЕР.1.014.00-00 DS", "ED.S.A940.1.0UJA&&.JML&&&.092.ZB.0014.R", "ED.S.A940.1.0UJA&&.JML&&&.092.ZB.0014.E"),
-    ("ЕА-А16",       "ЕР.1.015.00-00 ЭТ", "ЕР.1.015.01-00 DS", "ED.S.A940.1.0UJA&&.JML&&&.092.ZB.0015.R", "ED.S.A940.1.0UJA&&.JML&&&.092.ZB.0015.E"),
+    ("ЕА-А16",       "ЕР.1.015.00-00 ЭТ", "ЕР.1.015.00-00 DS", "ED.S.A940.1.0UJA&&.JML&&&.092.ZB.0015.R", "ED.S.A940.1.0UJA&&.JML&&&.092.ZB.0015.E"),
     ("ЕА-А16хк",     "ЕР.1.015.01-00 ЭТ", "ЕР.1.015.01-00 DS", "ED.S.A940.1.0UJA&&.JML&&&.092.ZB.0016.R", "ED.S.A940.1.0UJA&&.JML&&&.092.ZB.0016.E"),
     ("ЕА-А16ха",     "ЕР.1.015.02-00 ЭТ", "ЕР.1.015.02-00 DS", "ED.S.A940.1.0UJA&&.JML&&&.092.ZB.0017.R", "ED.S.A940.1.0UJA&&.JML&&&.092.ZB.0017.E"),
     ("ЕА-А18",       "ЕР.1.016.00-00 ЭТ", "ЕР.1.016.00-00 DS", "ED.S.A940.1.0UJA&&.JML&&&.092.ZB.0018.R", "ED.S.A940.1.0UJA&&.JML&&&.092.ZB.0018.E"),
@@ -175,7 +177,7 @@ TEXTS = {
 }
 
 # =============================================================================
-#  ТЕКСТЫ ПРОТОКОЛОВ ПСИ (P2ru.pdf / P2en.pdf)
+#  ТЕКСТЫ ПРОТОКОЛОВ ПСИ (P2ru.pdf / P2en.pdf, образцы P1ru / P1en)
 # =============================================================================
 PSI_TEXTS = {
     "ru": {
@@ -186,7 +188,7 @@ PSI_TEXTS = {
             ("ЗАКАЗ:", "ЭП-1483/24"),
             ("НАИМЕНОВАНИЕ:", "Соединительные системы типа ЕА"),
             ("НАЗНАЧЕНИЕ:", 'АЭС "Эль-Дабаа"'),
-            ("НОРМАТИВНЫЕ ДОКУМЕНТЫ:", "ТУ 6981-002-33680530-02\nЕР.1.001.000.00 ПМ3"),
+            ("НОРМАТИВНЫЕ ДОКУМЕНТЫ:", "ТУ 6981-002-33680530-02<br/>ЕР.1.001.000.00 ПМ3"),
         ],
         "h_des": "Обозначение по договору",
         "h_batch": "№ партии",
@@ -212,7 +214,7 @@ PSI_TEXTS = {
         "ultimate_txt": "Соединительные системы соответствуют требованиям ТУ 6981-002-33680530-02",
         "sig1": "ИНЖЕНЕР ОТК",
         "sig2": "РУКОВОДИТЕЛЬ СОК",
-        "f_name": "ФАМИЛИЯ:",
+        "f_name": "ФАМИЛИЯ",
         "f_sign": "ПОДПИСЬ:",
         "f_date": "ДАТА",
         "mp": "м. п.",
@@ -226,7 +228,7 @@ PSI_TEXTS = {
             ("ORDER:", "ЕР-1483/24"),
             ("ITEM NAME :", "Connecting systems, type EA"),
             ("SITE :", "El-Dabaa NPP"),
-            ("REGULATORY: DOCUMENTS", "TU 6981-002-33680530-02\nEP.1.001.000.00 PM3"),
+            ("REGULATORY: DOCUMENTS", "TU 6981-002-33680530-02<br/>EP.1.001.000.00 PM3"),
         ],
         "h_des": "Designation as per the contract",
         "h_batch": "№ of batch",
@@ -490,19 +492,21 @@ def order_records(records, sort_by_code):
     return sorted(records, key=lambda r: (r["doc_ru"] or "ZZZ", r["pos"], r["row"]))
 
 
-def paginate_psi(records, code_split):
-    pages, cur, cur_code = [], [], None
-    for rec in records:
-        code = rec["doc_ru"]
-        if cur and (len(cur) >= 10 or (code_split and code != cur_code)):
-            pages.append(cur)
-            cur = []
-        if not cur:
-            cur_code = code
-        cur.append(rec)
-    if cur:
-        pages.append(cur)
-    return pages
+def label_numbers(records, sort_by_code):
+    """Нумерация окошка этикетки: сквозная 1..N, а при сортировке — с 1 внутри каждого блока кода."""
+    nums, counter = [], {}
+    for i, rec in enumerate(records, 1):
+        if sort_by_code:
+            counter[rec["doc_ru"]] = counter.get(rec["doc_ru"], 0) + 1
+            nums.append(counter[rec["doc_ru"]])
+        else:
+            nums.append(i)
+    return nums
+
+
+def paginate_psi(records):
+    """Сплошная разбивка по 10 строк: пустые строки остаются только на последнем листе."""
+    return [records[i:i + 10] for i in range(0, len(records), 10)]
 
 
 def psi_unit(lang, rec):
@@ -515,9 +519,10 @@ def psi_unit(lang, rec):
 
 
 # =============================================================================
-#  ШРИФТЫ И ЛОГОТИП
+#  ШРИФТЫ
 # =============================================================================
 FONT, FONT_B, FONT_I, FONT_BI = "Helvetica", "Helvetica-Bold", "Helvetica", "Helvetica-Bold"
+PF, PF_B, PF_I, PF_BI = "Times-Roman", "Times-Bold", "Times-Italic", "Times-BoldItalic"
 
 
 def app_dir():
@@ -532,7 +537,7 @@ def resource(name):
 
 
 def register_fonts():
-    global FONT, FONT_B, FONT_I, FONT_BI
+    global FONT, FONT_B, FONT_I, FONT_BI, PF, PF_B, PF_I, PF_BI
     win = os.path.join(os.environ.get("WINDIR", r"C:\Windows"), "Fonts")
     regular = [resource("fonts/DejaVuSans.ttf"), os.path.join(app_dir(), "DejaVuSans.ttf"),
                os.path.join(win, "arial.ttf"), os.path.join(win, "calibri.ttf"),
@@ -588,6 +593,24 @@ def register_fonts():
         if FONT_BI == "Helvetica-Bold":
             FONT_BI = FONT_B
         pdfmetrics.registerFontFamily("LBL", normal=FONT, bold=FONT_B, italic=FONT_I, boldItalic=FONT_BI)
+    # семейство Times для ПСИ (как в образцах); при отсутствии — шрифт этикеток
+    treg = os.path.join(win, "times.ttf")
+    if os.path.isfile(treg):
+        try:
+            pdfmetrics.registerFont(TTFont("PSI", treg))
+            for nm, fn in (("PSI-B", "timesbd.ttf"), ("PSI-I", "timesi.ttf"), ("PSI-BI", "timesbi.ttf")):
+                fp = os.path.join(win, fn)
+                if os.path.isfile(fp):
+                    pdfmetrics.registerFont(TTFont(nm, fp))
+            global PF, PF_B, PF_I, PF_BI
+            PF, PF_B, PF_I, PF_BI = "PSI", "PSI-B", "PSI-I", "PSI-BI"
+            pdfmetrics.registerFontFamily("PSI", normal=PF, bold=PF_B, italic=PF_I, boldItalic=PF_BI)
+        except Exception:
+            PF, PF_B, PF_I, PF_BI = FONT, FONT_B, FONT_I, FONT_BI
+    else:
+        PF, PF_B, PF_I, PF_BI = FONT, FONT_B, FONT_I, FONT_BI
+    if not ok and PF == "Times-Roman":
+        pass  # Times-Roman встроен в reportlab (латиница), кириллица ПСИ ляжет на встроенный шрифт
     if not ok:
         raise RuntimeError("Не найден шрифт с кириллицей (arial.ttf / DejaVuSans.ttf).")
 
@@ -651,8 +674,8 @@ def draw_logo(c, cx, cy, h):
 # =============================================================================
 #  ГЕОМЕТРИЯ
 # =============================================================================
-PAGE_W, PAGE_H = landscape(A4)          # лист этикетки — альбомный
-LPAGE_W, LPAGE_H = A4                   # лист ПСИ — портретный
+PAGE_W, PAGE_H = landscape(A4)
+LPAGE_W, LPAGE_H = A4
 LEFT_M, RIGHT_M, TOP_M = 14 * mm, 12 * mm, 12 * mm
 GUTTER = 10 * mm
 COL_W = (PAGE_W - LEFT_M - RIGHT_M - GUTTER) / 2.0
@@ -660,12 +683,11 @@ BOX_H, BOX_Y = 7 * mm, 7 * mm
 AVAIL_TOP = PAGE_H - TOP_M
 AVAIL_BOT = BOX_Y + BOX_H + 4 * mm
 AVAIL = AVAIL_TOP - AVAIL_BOT
-CODE_WIN_W = 80 * mm                    # неизменное окошко кода
-NUM_WIN_W = 14 * mm                     # неизменное окошко номера (4 знака)
+CODE_WIN_W = 80 * mm
+NUM_WIN_W = 14 * mm
 
 
 def draw_code_frame(c, code, num, page_w):
-    """Рамка внизу: два смежных окошка фиксированного размера — код и номер."""
     bx = (page_w - (CODE_WIN_W + NUM_WIN_W)) / 2.0
     c.setStrokeColor(colors.black)
     c.setLineWidth(0.8)
@@ -851,34 +873,52 @@ def render_label(c, rec, man, lang, page_no, fs=10.0, dry=False):
     return y0 - min(L.y, R.y)
 
 
-def make_labels_pdf(path, records, man, lang, progress=None):
+def make_labels_pdf(path, records, man, lang, numbers, progress=None):
     c = canvas.Canvas(path, pagesize=landscape(A4))
     c.setTitle("Этикетки / Data Sheets " + ("RU" if lang == "ru" else "EN"))
     c.setAuthor("ELOX-PROM JSC")
-    for i, rec in enumerate(records, 1):
+    for i, rec in enumerate(records):
+        num = numbers[i]
         size = 10.0
         for fs in (10.0, 9.5, 9.0, 8.5, 8.0, 7.5, 7.0):
             size = fs
-            if render_label(c, rec, man, lang, i, fs=fs, dry=True) <= AVAIL:
+            if render_label(c, rec, man, lang, num, fs=fs, dry=True) <= AVAIL:
                 break
-        render_label(c, rec, man, lang, i, fs=size, dry=False)
+        render_label(c, rec, man, lang, num, fs=size, dry=False)
         c.showPage()
         if progress:
-            progress(i)
+            progress(i + 1)
     c.save()
 
 
 # =============================================================================
-#  ПРОТОКОЛ ПСИ (портретный)
+#  ПРОТОКОЛ ПСИ (портретный, шрифт Times, как в образцах P1ru / P1en)
 # =============================================================================
-def _ps(c, text, x, y, w, size=9.0, bold=False, ital=False, align=TA_LEFT, lead=None):
-    """Paragraph с абсолютной позицией; возвращает высоту."""
-    fn = FONT_BI if (bold and ital) else FONT_B if bold else FONT_I if ital else FONT
-    st = ParagraphStyle("p", fontName=fn, fontSize=size, leading=lead or size * 1.2,
-                        alignment=align, textColor=colors.black)
-    p = Paragraph(text, st)
+def _pstyle(size, bold=False, ital=False, align=TA_LEFT, lead=None):
+    fn = PF_BI if (bold and ital) else PF_B if bold else PF_I if ital else PF
+    return ParagraphStyle("p", fontName=fn, fontSize=size, leading=lead or size * 1.18,
+                          alignment=align, textColor=colors.black)
+
+
+def _wrap_h(text, w, size, bold=False, ital=False, align=TA_LEFT):
+    p = Paragraph(text, _pstyle(size, bold, ital, align))
     _, h = p.wrap(w, 10000)
-    p.drawOn(c, x, y - h)
+    return h
+
+
+def _ps(c, text, x, y_top, w, size=9.0, bold=False, ital=False, align=TA_LEFT):
+    """Рисует абзац, верхняя граница = y_top; возвращает высоту."""
+    p = Paragraph(text, _pstyle(size, bold, ital, align))
+    _, h = p.wrap(w, 10000)
+    p.drawOn(c, x, y_top - h)
+    return h
+
+
+def _psc(c, text, x, y_top, row_h, w, size=9.0, bold=False, ital=False, align=TA_LEFT):
+    """Абзац, вертикально центрированный в строке высотой row_h."""
+    h = _wrap_h(text, w, size, bold, ital, align)
+    top = y_top - (row_h - h) / 2.0
+    _ps(c, text, x, top, w, size, bold, ital, align)
     return h
 
 
@@ -889,33 +929,29 @@ def render_psi(c, recs, page_no, report_no, lang):
     y = LPAGE_H - 12 * mm
     top = y
 
-    # --- шапка ---
-    y -= 6 * mm
-    _ps(c, f'<b>{esc(T["report_pre"])}<i>PSI-1483/26-{report_no:03d}</i></b>',
-        X0, y, W, size=10.5, align=TA_CENTER)
-    y -= 5 * mm
-    _ps(c, f'<b>{esc(T["subtitle"])}</b>', X0, y, W, size=10, align=TA_CENTER)
-    y -= 3 * mm
+    # --- шапка: номер протокола и подзаголовок (высоты учитываются фактически) ---
+    h = _ps(c, f'<b>{esc(T["report_pre"])}<i>PSI-1483/26-{report_no:03d}</i></b>',
+            X0, y - 5 * mm, W, size=10.5, align=TA_CENTER)
+    y -= 5 * mm + h + 1.5 * mm
+    h = _ps(c, f'<b>{esc(T["subtitle"])}</b>', X0, y, W, size=9.5, align=TA_CENTER)
+    y -= h + 2.5 * mm
 
     # --- верхняя таблица ---
-    cols = [28 * mm, 44 * mm, 38 * mm, 38 * mm, 12 * mm, 20 * mm]
-    head_h, row_h = 9 * mm, 5.4 * mm
+    cols = [30 * mm, 42 * mm, 36 * mm, 36 * mm, 12 * mm, 24 * mm]
+    heads = [T["h_des"], T["h_batch"], T["h_qty"], T["h_unit"]]
+    head_h = max(_wrap_h(f'<b>{esc(t)}</b>', cols[j + 2] - 3 * mm, 8.5, align=TA_CENTER)
+                 for j, t in enumerate(heads)) + 3 * mm
+    row_h = 5.4 * mm
     tbl_h = head_h + 10 * row_h
     y0t = y
     c.setLineWidth(0.8)
-    # левый инфоблок (спан на все строки)
     lx0, lx1 = X0, X0 + cols[0] + cols[1]
     c.rect(lx0, y0t - tbl_h, lx1 - lx0, tbl_h)
     step = tbl_h / 5.0
     for i, (lab, val) in enumerate(T["info"]):
-        yy = y0t - i * step - 3 * mm
-        _ps(c, f'<b>{esc(lab)}</b>', lx0 + 2 * mm, yy, cols[0] - 3 * mm, size=9)
-        lines = val.split("\n")
-        vy = yy
-        for ln in lines:
-            h = _ps(c, f'<i>{esc(ln)}</i>', lx0 + cols[0] + 1 * mm, vy, cols[1] - 4 * mm, size=9)
-            vy -= h + 1
-    # правая сетка
+        yy = y0t - i * step - 3.5 * mm
+        _ps(c, f'<b>{esc(lab)}</b>', lx0 + 2 * mm, yy, cols[0] - 4 * mm, size=9)
+        _ps(c, f'<i>{val}</i>', lx0 + cols[0] + 1.5 * mm, yy, cols[1] - 4 * mm, size=9)
     rx = lx1
     xs = [rx]
     for wdt in cols[2:]:
@@ -926,93 +962,102 @@ def render_psi(c, recs, page_no, report_no, lang):
         c.line(rx, y0t - head_h - r * row_h, xs[-1], y0t - head_h - r * row_h)
     for xx in xs[1:-1]:
         c.line(xx, y0t, xx, y0t - tbl_h)
-    heads = [T["h_des"], T["h_batch"], T["h_qty"], T["h_unit"]]
     for j, htxt in enumerate(heads):
-        _ps(c, f'<b>{esc(htxt)}</b>', xs[j] + 1 * mm, y0t - 2 * mm, xs[j + 1] - xs[j] - 2 * mm,
-            size=8.5, align=TA_CENTER)
+        _psc(c, f'<b>{esc(htxt)}</b>', xs[j] + 1 * mm, y0t, head_h, xs[j + 1] - xs[j] - 2 * mm,
+             size=8.5, align=TA_CENTER)
     for r in range(10):
         ry = y0t - head_h - r * row_h
         rec = recs[r] if r < len(recs) else None
-        vals = ["", "", "", ""]
-        if rec:
-            vals = [rec["tail"], rec["kks"], rec["qty_str"], psi_unit(lang, rec)]
+        vals = [DASH, DASH, DASH, DASH] if rec is None else \
+               [esc(rec["tail"]), esc(rec["kks"]), esc(rec["qty_str"]), esc(psi_unit(lang, rec))]
         for j, v in enumerate(vals):
-            _ps(c, esc(v), xs[j] + 1 * mm, ry - 1.6 * mm, xs[j + 1] - xs[j] - 2 * mm,
-                size=8.5, align=TA_CENTER)
+            _psc(c, v, xs[j] + 1 * mm, ry, row_h, xs[j + 1] - xs[j] - 2 * mm,
+                 size=8.5, align=TA_CENTER)
     y = y0t - tbl_h
 
     # --- РЕЗУЛЬТАТЫ ИСПЫТАНИЙ ---
     c.rect(X0, y - 6 * mm, W, 6 * mm)
-    _ps(c, f'<b>{esc(T["results"])}</b>', X0, y - 1.6 * mm, W, size=9.5, align=TA_CENTER)
+    _psc(c, f'<b>{esc(T["results"])}</b>', X0, y, 6 * mm, W, size=9.5, align=TA_CENTER)
     y -= 6 * mm
 
-    rcols = [52 * mm, 46 * mm, 32 * mm, 18 * mm, 32 * mm]
+    rcols = [52 * mm, 45 * mm, 30 * mm, 18 * mm, 35 * mm]
     rxs = [X0]
     for wdt in rcols:
         rxs.append(rxs[-1] + wdt)
-    rh_h, trow_h = 10 * mm, 13.5 * mm
+    hheads = [T["h_test"], T["h_val"], T["h_eq"], T["h_con"], T["h_date"]]
+    rh_h = max(_wrap_h(f'<b>{esc(t)}</b>', rcols[j] - 3 * mm, 8.5, align=TA_CENTER)
+               for j, t in enumerate(hheads)) + 3 * mm
     c.rect(X0, y - rh_h, W, rh_h)
     for xx in rxs[1:-1]:
         c.line(xx, y, xx, y - rh_h)
-    for j, htxt in enumerate([T["h_test"], T["h_val"], T["h_eq"], T["h_con"], T["h_date"]]):
-        _ps(c, f'<b>{esc(htxt)}</b>', rxs[j] + 1.5 * mm, y - 2 * mm, rcols[j] - 3 * mm,
-            size=8.5, align=TA_CENTER)
+    for j, htxt in enumerate(hheads):
+        _psc(c, f'<b>{esc(htxt)}</b>', rxs[j] + 1.5 * mm, y, rh_h, rcols[j] - 3 * mm,
+             size=8.5, align=TA_CENTER)
     y -= rh_h
+
+    # строки испытаний: высота строки по самому высокому содержимому
+    def col1_text(lines):
+        return f'<b>{esc(lines[0])}</b><br/>' + '<br/>'.join(esc(t) for t in lines[1:])
+
+    def col2_text(lines):
+        return '<br/>'.join(f'<b>{esc(t)}</b>' for t in lines)
+
+    trow_h = 12 * mm
+    for t_lines, v_lines in T["tests"]:
+        hh = max(_wrap_h(col1_text(t_lines), rcols[0] - 4 * mm, 8.5),
+                 _wrap_h(col2_text(v_lines), rcols[1] - 3 * mm, 8.5, align=TA_CENTER))
+        trow_h = max(trow_h, hh + 4 * mm)
     for t_lines, v_lines in T["tests"]:
         c.rect(X0, y - trow_h, W, trow_h)
         for xx in rxs[1:-1]:
             c.line(xx, y, xx, y - trow_h)
-        ty = y - 3 * mm
-        for k, ln in enumerate(t_lines):
-            h = _ps(c, f'<b>{esc(ln)}</b>' if k == 0 else esc(ln),
-                    rxs[0] + 2 * mm, ty, rcols[0] - 4 * mm, size=8.5)
-            ty -= h + 1
-        vy = y - trow_h / 2.0 + len(v_lines) * 2 * mm
-        for ln in v_lines:
-            h = _ps(c, f'<b>{esc(ln)}</b>', rxs[1] + 1.5 * mm, vy, rcols[1] - 3 * mm,
-                    size=8.5, align=TA_CENTER)
-            vy -= h + 1
-        _ps(c, f'<b>{esc(T["eq"])}</b>', rxs[2] + 1.5 * mm, y - trow_h / 2.0 + 2 * mm,
-            rcols[2] - 3 * mm, size=8.5, align=TA_CENTER)
-        _ps(c, f'<i>{esc(T["concl"])}</i>', rxs[3] + 1.5 * mm, y - trow_h / 2.0 + 2 * mm,
-            rcols[3] - 3 * mm, size=8.5, align=TA_CENTER)
+        _psc(c, col1_text(t_lines), rxs[0] + 2 * mm, y, trow_h, rcols[0] - 4 * mm, size=8.5)
+        _psc(c, col2_text(v_lines), rxs[1] + 1.5 * mm, y, trow_h, rcols[1] - 3 * mm,
+             size=8.5, align=TA_CENTER)
+        _psc(c, f'<b>{esc(T["eq"])}</b>', rxs[2] + 1.5 * mm, y, trow_h, rcols[2] - 3 * mm,
+             size=8.5, align=TA_CENTER)
+        _psc(c, f'<i>{esc(T["concl"])}</i>', rxs[3] + 1.5 * mm, y, trow_h, rcols[3] - 3 * mm,
+             size=8.5, align=TA_CENTER)
         y -= trow_h
 
     # --- условные обозначения ---
     c.rect(X0, y - 7 * mm, W, 7 * mm)
-    _ps(c, T["signs"], X0 + 2 * mm, y - 2.2 * mm, W - 4 * mm, size=8.5)
+    _psc(c, T["signs"], X0 + 2 * mm, y, 7 * mm, W - 4 * mm, size=8.5)
     y -= 7 * mm
 
     # --- окончательное соответствие ---
-    ult_h = 40 * mm
+    ult_h = 38 * mm
     c.rect(X0, y - ult_h, W, ult_h)
-    _ps(c, f'<b>{esc(T["ultimate"])}</b>', X0, y - 8 * mm, W, size=10, align=TA_CENTER)
+    _ps(c, f'<b>{esc(T["ultimate"])}</b>', X0, y - 7 * mm, W, size=10, align=TA_CENTER)
     sw, sh_ = 62 * mm, 11 * mm
     sx = (LPAGE_W - sw) / 2.0
-    sy = y - ult_h / 2.0 - sh_ / 2.0
+    sy = y - ult_h / 2.0 - sh_ / 2.0 + 1 * mm
     c.setFillColor(colors.Color(0.75, 0.75, 0.75))
     c.rect(sx + sw, sy, 2 * mm, sh_, stroke=0, fill=1)
     c.setFillColor(colors.white)
     c.rect(sx, sy, sw, sh_, stroke=1, fill=1)
     c.setFillColor(colors.black)
-    _ps(c, esc(T["ultimate_txt"]), X0, y - ult_h + 8 * mm, W, size=10.5, align=TA_CENTER)
+    _ps(c, esc(T["ultimate_txt"]), X0, y - ult_h + 9 * mm, W, size=10.5, align=TA_CENTER)
     y -= ult_h
 
     # --- подписи ---
-    sig_h = 32 * mm
+    sig_h = 30 * mm
     c.rect(X0, y - sig_h, W, sig_h)
     mid = X0 + W / 2.0
     c.line(mid, y, mid, y - sig_h)
     for half, title in ((X0, T["sig1"]), (mid, T["sig2"])):
         hw = W / 2.0
-        _ps(c, f'<b>{esc(title)}</b>', half, y - 7 * mm, hw, size=9.5, align=TA_CENTER)
-        _ps(c, f'<b>{esc(T["f_name"])}</b>', half + 6 * mm, y - 13 * mm, 30 * mm, size=9)
-        c.drawString(half + 34 * mm, y - 13 * mm, ":")
-        _ps(c, f'<b>{esc(T["f_sign"])}</b>', half + 6 * mm, y - 19 * mm, 30 * mm, size=9)
-        c.setFont(FONT_I, 8.5)
-        c.drawString(half + hw - 26 * mm, y - 19 * mm, T["mp"])
-        _ps(c, f'<b>{esc(T["f_date"])}</b>', half + 6 * mm, y - 25 * mm, 30 * mm, size=9)
-        c.drawString(half + 34 * mm, y - 25 * mm, ":")
+        _ps(c, f'<b>{esc(title)}</b>', half, y - 6 * mm, hw, size=9.5, align=TA_CENTER)
+        col_x = half + 30 * mm
+        _ps(c, f'<b>{esc(T["f_name"])}</b>', half + 6 * mm, y - 12 * mm, 26 * mm, size=9)
+        c.setFont(PF, 9)
+        c.drawString(col_x, y - 12 * mm - 9 * 0.35, ":")
+        _ps(c, f'<b>{esc(T["f_sign"])}</b>', half + 6 * mm, y - 17.5 * mm, 26 * mm, size=9)
+        c.setFont(PF_I, 8.5)
+        c.drawString(half + hw - 24 * mm, y - 17.5 * mm - 8.5 * 0.35, T["mp"])
+        _ps(c, f'<b>{esc(T["f_date"])}</b>', half + 6 * mm, y - 23 * mm, 26 * mm, size=9)
+        c.setFont(PF, 9)
+        c.drawString(col_x, y - 23 * mm - 9 * 0.35, ":")
     y -= sig_h
 
     # --- внешняя рамка ---
@@ -1183,9 +1228,6 @@ class App(tk.Tk):
         m["psi_start"] = int(digits)
         return m
 
-    def ordered(self, man):
-        return order_records(self.records, man["sort_by_code"])
-
     def generate(self, lang, kind):
         if not self.records:
             messagebox.showwarning("Нет данных", "Сначала загрузите .xls файл.")
@@ -1195,7 +1237,8 @@ class App(tk.Tk):
         except ValueError as e:
             messagebox.showwarning("Проверьте поля", str(e))
             return
-        ordered = self.ordered(man)
+        ordered = order_records(self.records, man["sort_by_code"])
+        nums = label_numbers(ordered, man["sort_by_code"])
         stamp = datetime.datetime.now().strftime("%Y-%m-%d_%H%M%S")
         suffix = "RU" if lang == "ru" else "EN"
         targets = []
@@ -1204,10 +1247,10 @@ class App(tk.Tk):
                 folder = filedialog.askdirectory(title="Папка для PDF-файлов")
                 if not folder:
                     return
-                for i, rec in enumerate(ordered, 1):
+                for i, rec in enumerate(ordered):
                     safe_tail = re.sub(r'[\\/:*?"<>|]', "_", rec["tail"])
                     fname = f"{rec['kks']}_{safe_tail}.pdf"
-                    targets.append((os.path.join(folder, fname), [("label", [rec], i)]))
+                    targets.append((os.path.join(folder, fname), ("label", [rec], [nums[i]])))
             else:
                 path = filedialog.asksaveasfilename(
                     title="Сохранить PDF", defaultextension=".pdf",
@@ -1215,9 +1258,9 @@ class App(tk.Tk):
                     filetypes=[("PDF", "*.pdf")])
                 if not path:
                     return
-                targets.append((path, [("label", ordered, 0)]))
+                targets.append((path, ("label", ordered, nums)))
         else:
-            pages = paginate_psi(ordered, man["sort_by_code"])
+            pages = paginate_psi(ordered)
             if self.separate.get():
                 folder = filedialog.askdirectory(title="Папка для PDF-файлов ПСИ")
                 if not folder:
@@ -1225,7 +1268,7 @@ class App(tk.Tk):
                 for i, pg in enumerate(pages, 1):
                     num = man["psi_start"] + i - 1
                     fname = f"PSI-1483-26-{num:03d}.pdf"
-                    targets.append((os.path.join(folder, fname), [("psi", [pg], i)]))
+                    targets.append((os.path.join(folder, fname), ("psi", [pg], None)))
             else:
                 path = filedialog.asksaveasfilename(
                     title="Сохранить PDF", defaultextension=".pdf",
@@ -1233,38 +1276,26 @@ class App(tk.Tk):
                     filetypes=[("PDF", "*.pdf")])
                 if not path:
                     return
-                targets.append((path, [("psi", pages, 0)]))
+                targets.append((path, ("psi", pages, None)))
 
         self._save_settings()
         for b in (self.btn_ru, self.btn_en, self.btn_psi_ru, self.btn_psi_en):
             b.state(["disabled"])
-        total = sum(len(pp) for _, items in targets for _, pp, _ in items)
+        total = sum(len(items[1]) for _, items in targets)
         self.pb.configure(value=0, maximum=max(total, 1))
         self.say(f"\nГенерация ({suffix}, {kind}): страниц {total}, файлов {len(targets)}…")
 
         def work():
             done = 0
             try:
-                for path, items in targets:
-                    if items[0][0] == "label":
-                        recs = items[0][1]
-                        base = items[0][2]
-                        if base:
-                            def prog(i):
-                                self.after(0, lambda v=base - 1 + 1: self.pb.configure(value=v))
-                            make_labels_pdf(path, recs, man, lang,
-                                            progress=lambda i: self.after(0, lambda v=base: self.pb.configure(value=v)))
-                        else:
-                            def prog(i):
-                                self.after(0, lambda v=done + i: self.pb.configure(value=v))
-                            make_labels_pdf(path, recs, man, lang, progress=prog)
-                        done += len(recs)
+                for path, (k, payload, extra) in targets:
+                    def prog(i, d=done):
+                        self.after(0, lambda v=d + i: self.pb.configure(value=v))
+                    if k == "label":
+                        make_labels_pdf(path, payload, man, lang, extra, progress=prog)
                     else:
-                        pages = items[0][1]
-                        def prog(i):
-                            self.after(0, lambda v=done + i: self.pb.configure(value=v))
-                        make_psi_pdf(path, pages, man, lang, progress=prog)
-                        done += len(pages)
+                        make_psi_pdf(path, payload, man, lang, progress=prog)
+                    done += len(payload)
                 self.after(0, lambda: self._done(targets))
             except Exception as e:
                 tb = traceback.format_exc()
