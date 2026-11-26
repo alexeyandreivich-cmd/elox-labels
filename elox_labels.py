@@ -149,7 +149,7 @@ TEXTS = {
         "p21": "2.1. Date of manufacture:",
         "p22": "2.2. Manufacturer: ELOX-PROM JSC.",
         "p23": "2.3. Address: 1V, Lenina street, Ivanino village, Kurchatov district, Kursk Oblast, the Russian Federation, 307220.",
-        "p24": "2.4. License for the manufacture of the equipment for nuclear power facilities № ЦО-12-101-13757 от 15.02.2024. Valid through 15.02.2029.",
+        "p24": "2.4. License for the manufacture of the equipment for nuclear power facilities № ЦО-12-101-13757 of 15.02.2024. Valid through 15.02.2029.",
         "s3": "3.  Composition of the batch is given in Table 1",
         "tab_caption": "Table 1",
         "tab_head1": "Designation of connecting system type {type}, Specifications TU 6981-002-33680530-02",
@@ -182,6 +182,7 @@ TEXTS = {
 PSI_TEXTS = {
     "ru": {
         "report_pre": "ПРОТОКОЛ №: ",
+        "report_num_pre": "ПСИ-1483/26-",
         "subtitle": "приемо-сдаточных испытаний соединительных систем типа ЕА",
         "info": [
             ("ИЗГОТОВИТЕЛЬ:", 'АО "ЭЛОКС-ПРОМ"'),
@@ -222,6 +223,7 @@ PSI_TEXTS = {
     },
     "en": {
         "report_pre": "REPORT №: ",
+        "report_num_pre": "PSI-1483/26-",
         "subtitle": "Acceptance Tests of Connecting Systems, Type EA",
         "info": [
             ("MANUFACTURER:", "ELOX-PROM, JSC"),
@@ -593,7 +595,6 @@ def register_fonts():
         if FONT_BI == "Helvetica-Bold":
             FONT_BI = FONT_B
         pdfmetrics.registerFontFamily("LBL", normal=FONT, bold=FONT_B, italic=FONT_I, boldItalic=FONT_BI)
-    # семейство Times для ПСИ (как в образцах); при отсутствии — шрифт этикеток
     treg = os.path.join(win, "times.ttf")
     if os.path.isfile(treg):
         try:
@@ -602,15 +603,12 @@ def register_fonts():
                 fp = os.path.join(win, fn)
                 if os.path.isfile(fp):
                     pdfmetrics.registerFont(TTFont(nm, fp))
-            global PF, PF_B, PF_I, PF_BI
             PF, PF_B, PF_I, PF_BI = "PSI", "PSI-B", "PSI-I", "PSI-BI"
             pdfmetrics.registerFontFamily("PSI", normal=PF, bold=PF_B, italic=PF_I, boldItalic=PF_BI)
         except Exception:
             PF, PF_B, PF_I, PF_BI = FONT, FONT_B, FONT_I, FONT_BI
     else:
         PF, PF_B, PF_I, PF_BI = FONT, FONT_B, FONT_I, FONT_BI
-    if not ok and PF == "Times-Roman":
-        pass  # Times-Roman встроен в reportlab (латиница), кириллица ПСИ ляжет на встроенный шрифт
     if not ok:
         raise RuntimeError("Не найден шрифт с кириллицей (arial.ttf / DejaVuSans.ttf).")
 
@@ -929,15 +927,15 @@ def render_psi(c, recs, page_no, report_no, lang):
     y = LPAGE_H - 12 * mm
     top = y
 
-    # --- шапка: номер протокола и подзаголовок (высоты учитываются фактически) ---
-    h = _ps(c, f'<b>{esc(T["report_pre"])}<i>PSI-1483/26-{report_no:03d}</i></b>',
+    # --- шапка: номер протокола (ПСИ- / PSI-) и подзаголовок ---
+    h = _ps(c, f'<b>{esc(T["report_pre"])}<i>{esc(T["report_num_pre"])}{report_no:03d}</i></b>',
             X0, y - 5 * mm, W, size=10.5, align=TA_CENTER)
     y -= 5 * mm + h + 1.5 * mm
     h = _ps(c, f'<b>{esc(T["subtitle"])}</b>', X0, y, W, size=9.5, align=TA_CENTER)
     y -= h + 2.5 * mm
 
-    # --- верхняя таблица ---
-    cols = [30 * mm, 42 * mm, 36 * mm, 36 * mm, 12 * mm, 24 * mm]
+    # --- верхняя таблица (колонка наименований расширена под длинные слова) ---
+    cols = [34 * mm, 40 * mm, 35 * mm, 35 * mm, 12 * mm, 24 * mm]
     heads = [T["h_des"], T["h_batch"], T["h_qty"], T["h_unit"]]
     head_h = max(_wrap_h(f'<b>{esc(t)}</b>', cols[j + 2] - 3 * mm, 8.5, align=TA_CENTER)
                  for j, t in enumerate(heads)) + 3 * mm
@@ -950,8 +948,8 @@ def render_psi(c, recs, page_no, report_no, lang):
     step = tbl_h / 5.0
     for i, (lab, val) in enumerate(T["info"]):
         yy = y0t - i * step - 3.5 * mm
-        _ps(c, f'<b>{esc(lab)}</b>', lx0 + 2 * mm, yy, cols[0] - 4 * mm, size=9)
-        _ps(c, f'<i>{val}</i>', lx0 + cols[0] + 1.5 * mm, yy, cols[1] - 4 * mm, size=9)
+        _ps(c, f'<b>{esc(lab)}</b>', lx0 + 1.5 * mm, yy, cols[0] - 3 * mm, size=9)
+        _ps(c, f'<i>{val}</i>', lx0 + cols[0] + 1 * mm, yy, cols[1] - 3 * mm, size=8.5)
     rx = lx1
     xs = [rx]
     for wdt in cols[2:]:
@@ -995,7 +993,6 @@ def render_psi(c, recs, page_no, report_no, lang):
              size=8.5, align=TA_CENTER)
     y -= rh_h
 
-    # строки испытаний: высота строки по самому высокому содержимому
     def col1_text(lines):
         return f'<b>{esc(lines[0])}</b><br/>' + '<br/>'.join(esc(t) for t in lines[1:])
 
@@ -1085,13 +1082,13 @@ def make_psi_pdf(path, pages, man, lang, progress=None):
 #  GUI
 # =============================================================================
 FIELDS = [
-    ("safety",   "Класс безопасности (mhgbd)", "2", 12),
-    ("seismic",  "Категория сейсмостойкости (hkn)", "I", 12),
-    ("life",     "Срок службы, лет (jyxcgh)", "60", 12),
-    ("shelf",    "Средний срок сохраняемости, мес. (laqbe)", "60", 12),
-    ("warranty", "Гарантийный срок, мес. (mssky)", "24", 12),
+    ("safety",   "Класс безопасности", "2", 12),
+    ("seismic",  "Категория сейсмостойкости", "I", 12),
+    ("life",     "Срок службы, лет", "60", 12),
+    ("shelf",    "Средний срок сохраняемости, мес.", "60", 12),
+    ("warranty", "Гарантийный срок, мес.", "24", 12),
     ("date",     "Дата изготовления (необязательно)", "", 20),
-    ("plan",     "План качества № (ED-QP-…)", "ED-QP-ELOX-PROM-08-2026", 46),
+    ("plan",     "План качества №", "ED-QP-ELOX-PROM-08-2026", 46),
     ("contract", "Договор № … от …", "ЭП-100/24 от 30.05.2024", 46),
 ]
 SETTINGS_FILE = "elox_labels_settings.json"
@@ -1157,19 +1154,19 @@ class App(tk.Tk):
         self.psi_start = tk.StringVar(value="013")
         ttk.Entry(f_opt2, textvariable=self.psi_start, width=8).pack(side="left", padx=6)
 
+        # четыре кнопки одной сеткой 2x2: одинаковый размер и одинаковые зазоры
         f_btn = ttk.Frame(self)
         f_btn.pack(fill="x", padx=10, pady=6)
+        f_btn.columnconfigure(0, weight=1, uniform="btn")
+        f_btn.columnconfigure(1, weight=1, uniform="btn")
         self.btn_ru = ttk.Button(f_btn, text="Русские версии", command=lambda: self.generate("ru", "label"))
-        self.btn_ru.pack(side="left", expand=True, fill="x", padx=(0, 5), ipady=8)
         self.btn_en = ttk.Button(f_btn, text="Английские версии", command=lambda: self.generate("en", "label"))
-        self.btn_en.pack(side="left", expand=True, fill="x", padx=(5, 0), ipady=8)
-
-        f_btn2 = ttk.Frame(self)
-        f_btn2.pack(fill="x", padx=10, pady=(0, 6))
-        self.btn_psi_ru = ttk.Button(f_btn2, text="ПСИ Рус.", command=lambda: self.generate("ru", "psi"))
-        self.btn_psi_ru.pack(side="left", expand=True, fill="x", padx=(0, 5), ipady=8)
-        self.btn_psi_en = ttk.Button(f_btn2, text="ПСИ Англ.", command=lambda: self.generate("en", "psi"))
-        self.btn_psi_en.pack(side="left", expand=True, fill="x", padx=(5, 0), ipady=8)
+        self.btn_psi_ru = ttk.Button(f_btn, text="ПСИ Рус.", command=lambda: self.generate("ru", "psi"))
+        self.btn_psi_en = ttk.Button(f_btn, text="ПСИ Англ.", command=lambda: self.generate("en", "psi"))
+        self.btn_ru.grid(row=0, column=0, sticky="ew", padx=(0, 5), pady=(0, 5), ipady=8)
+        self.btn_en.grid(row=0, column=1, sticky="ew", padx=(5, 0), pady=(0, 5), ipady=8)
+        self.btn_psi_ru.grid(row=1, column=0, sticky="ew", padx=(0, 5), pady=(5, 0), ipady=8)
+        self.btn_psi_en.grid(row=1, column=1, sticky="ew", padx=(5, 0), pady=(5, 0), ipady=8)
 
         self.pb = ttk.Progressbar(self, mode="determinate")
         self.pb.pack(fill="x", padx=10, pady=(4, 2))
