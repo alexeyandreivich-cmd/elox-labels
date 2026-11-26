@@ -3,7 +3,8 @@
 Генератор этикеток (Data Sheet) систем соединительных АО "ЭЛОКС-ПРОМ".
 Справочник типов и кодов документов — из файла 4.pdf (колонки: тип, ЭТ, DS, код RU, код EN).
 Макет: альбомный лист, две колонки, логотип в шапке, код документа внизу в рамке (отключаемо).
-Сборка: pyinstaller --onefile --noconsole --name EloxLabels elox_labels.py
+Логотип вшивается в exe через --add-data "logo.png;." (fallback — векторная копия).
+Сборка: pyinstaller --onefile --noconsole --add-data "logo.png;." --name EloxLabels elox_labels.py
 """
 
 import os
@@ -88,6 +89,7 @@ TYPES = {norm_type(t): (t, ru, en, dr, de) for t, ru, en, dr, de in TYPES_TABLE}
 
 # =============================================================================
 #  ТЕКСТЫ ФОРМ (1ru.pdf / 1en.pdf)
+#  Внимание: шаблоны содержат разметку <u>...</u> — их нельзя прогонять через esc()
 # =============================================================================
 TEXTS = {
     "ru": {
@@ -450,6 +452,7 @@ LOGO_PATH = None
 
 
 def find_logo():
+    """Логотип ищется внутри exe (вшит через --add-data), затем рядом с exe."""
     global LOGO_PATH
     for p in (resource("logo.png"), os.path.join(app_dir(), "logo.png")):
         if os.path.isfile(p):
@@ -458,7 +461,7 @@ def find_logo():
 
 
 def draw_logo(c, cx, cy, h):
-    """Логотип: файл logo.png рядом с exe, иначе векторная копия значка."""
+    """Логотип: файл logo.png (вшит в exe), иначе векторная копия значка."""
     if LOGO_PATH:
         try:
             ir = ImageReader(LOGO_PATH)
@@ -541,6 +544,7 @@ def plural_en(n, forms):
 
 
 def esc(s):
+    """Экранирование ТОЛЬКО динамических значений (не шаблонов с разметкой <u>)."""
     return str(s).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
 
@@ -592,6 +596,7 @@ def render_label(c, rec, man, lang, fs=10.0, dry=False):
         warr = f"{man['warranty']} {plural_en(man['warranty'], T['months'])}"
         contract = re.sub(r"\bот\b", "of", man["contract"], flags=re.IGNORECASE)
     contract = re.sub(r"^\s*№\s*", "", contract)
+    # значения экранируются ЗДЕСЬ, один раз; шаблоны с <u> после format() не экранируются
     ctx = dict(type=esc(typ), label=esc(label), plan=esc(man["plan"]), contract=esc(contract),
                life=esc(life), shelf=esc(shelf), warranty=esc(warr))
     date_ul = f"<u>{NB*3}{esc(man['date'])}{NB*3}</u>" if man["date"] else f"<u>{NB*24}</u>"
@@ -612,37 +617,37 @@ def render_label(c, rec, man, lang, fs=10.0, dry=False):
     L.y = logo_cy - logo_h / 2.0 - 4 * mm
 
     # ---------- заголовки ----------
-    L.para(esc(T["title"].format(**ctx)), size=fs + 3, bold=True, align=TA_CENTER, before=2, after=6)
-    L.para(esc(T["sub1"]), size=fs + 2, bold=True, align=TA_CENTER, after=1)
-    L.para(esc(T["sub2"].format(**ctx)), size=fs + 2, bold=True, align=TA_CENTER, after=6)
-    L.para(f'{esc(T["kks_label"])} <u>{NB*4}{esc(rec["kks"])}{NB*4}</u>',
+    L.para(T["title"].format(**ctx), size=fs + 3, bold=True, align=TA_CENTER, before=2, after=6)
+    L.para(T["sub1"], size=fs + 2, bold=True, align=TA_CENTER, after=1)
+    L.para(T["sub2"].format(**ctx), size=fs + 2, bold=True, align=TA_CENTER, after=6)
+    L.para(f'{T["kks_label"]} <u>{NB*4}{esc(rec["kks"])}{NB*4}</u>',
            size=fs, align=TA_CENTER, after=6)
 
     # ---------- 1 ----------
-    L.heading(esc(T["s1"]))
-    L.para(esc(T["p11"]))
-    L.para(f'{esc(T["s12_pre"])} <u>{NB*5}{esc(man["safety"])}{NB*5}</u> {esc(T["s12_post"])}',
+    L.heading(T["s1"])
+    L.para(T["p11"])
+    L.para(f'{T["s12_pre"]} <u>{NB*5}{esc(man["safety"])}{NB*5}</u> {T["s12_post"]}',
            align=TA_LEFT)
-    L.para(f'{esc(T["s13_pre"])} <u>{NB*4}{esc(man["seismic"])}{NB*4}</u> {esc(T["s13_post"])}',
+    L.para(f'{T["s13_pre"]} <u>{NB*4}{esc(man["seismic"])}{NB*4}</u> {T["s13_post"]}',
            align=TA_LEFT)
-    L.para(esc(T["p14"]))
+    L.para(T["p14"])
 
     # ---------- 2 ----------
-    L.heading(esc(T["s2"]))
-    L.para(f'{esc(T["p21"])} {date_ul}', align=TA_LEFT)
-    L.para(esc(T["p22"]), align=TA_LEFT)
-    L.para(esc(T["p23"]))
-    L.para(esc(T["p24"]))
+    L.heading(T["s2"])
+    L.para(f'{T["p21"]} {date_ul}', align=TA_LEFT)
+    L.para(T["p22"], align=TA_LEFT)
+    L.para(T["p23"])
+    L.para(T["p24"])
 
     # ---------- 3 + таблица ----------
-    L.heading(esc(T["s3"]))
-    L.para(esc(T["tab_caption"]), align=TA_LEFT, after=3)
+    L.heading(T["s3"])
+    L.para(T["tab_caption"], align=TA_LEFT, after=3)
     hst = ParagraphStyle("h", fontName=FONT_B, fontSize=fs - 0.5, leading=fs * 1.2, alignment=TA_CENTER)
     lft = ParagraphStyle("l", fontName=FONT, fontSize=fs, leading=fs * 1.2, alignment=TA_LEFT)
     ctr = ParagraphStyle("c", fontName=FONT, fontSize=fs, leading=fs * 1.2, alignment=TA_CENTER)
     qty_text = f"{rec['qty_str']} {rec['unit_ru'] if lang == 'ru' else rec['unit_en']}".strip()
     data = [
-        [Paragraph(esc(T["tab_head1"].format(**ctx)), hst), Paragraph(esc(T["tab_head2"]), hst)],
+        [Paragraph(T["tab_head1"].format(**ctx), hst), Paragraph(T["tab_head2"], hst)],
         [Paragraph(esc(rec["tail"]), lft), Paragraph(esc(qty_text), ctr)],
         ["", ""], ["", ""],
     ]
@@ -659,23 +664,23 @@ def render_label(c, rec, man, lang, fs=10.0, dry=False):
     L.y -= th + 2
 
     # ---------- правая колонка: 4 ----------
-    R.heading(esc(T["s4"]))
-    R.para(esc(T["p41"].format(**ctx)))
-    R.para(esc(T["p42"].format(**ctx)))
-    R.para(esc(T["p43"].format(**ctx)))
+    R.heading(T["s4"])
+    R.para(T["p41"].format(**ctx))
+    R.para(T["p42"].format(**ctx))
+    R.para(T["p43"].format(**ctx))
 
     # ---------- 5 ----------
-    R.heading(esc(T["s5"]))
-    R.para(esc(T["p51"].format(**ctx)))
-    R.para(esc(T["p52"].format(**ctx)))
-    R.para(esc(T["p53"]))
-    R.para(esc(T["p54"].format(**ctx)))
+    R.heading(T["s5"])
+    R.para(T["p51"].format(**ctx))
+    R.para(T["p52"].format(**ctx))          # без esc(): внутри шаблона разметка <u>
+    R.para(T["p53"])
+    R.para(T["p54"].format(**ctx))          # без esc(): внутри шаблона разметка <u>
     R.gap(4 * mm)
-    R.para(esc(T["sign_head"]), align=TA_LEFT, after=0)
-    R.gap(7 * mm)
+    R.para(T["sign_head"], align=TA_LEFT, after=0)
+    R.gap(12 * mm)                          # увеличенный отступ над "подпись"/"расшифровка подписи"
     R.uline(xR + 2 * mm, 40 * mm, T["cap_sign"])
     R.uline(xR + 48 * mm, 62 * mm, T["cap_name"])
-    R.gap(6 * mm)
+    R.gap(12 * mm)                          # увеличенный отступ над "год, месяц, число"
     if not dry:
         c.setFont(FONT, fs)
         c.drawString(xR + 2 * mm, R.y, T["seal"])
@@ -683,13 +688,13 @@ def render_label(c, rec, man, lang, fs=10.0, dry=False):
     R.gap(11 * mm)
 
     # ---------- 6 ----------
-    R.heading(esc(T["s6"]))
-    R.para(esc(T["p61"].format(**ctx)))
-    R.gap(9 * mm)
+    R.heading(T["s6"])
+    R.para(T["p61"].format(**ctx))
+    R.gap(14 * mm)                          # увеличенный отступ над "должность/подпись/расшифровка"
     R.uline(xR + 2 * mm, 35 * mm, T["cap_pos"])
     R.uline(xR + 43 * mm, 32 * mm, T["cap_sign"])
     R.uline(xR + 81 * mm, 45 * mm, T["cap_name"])
-    R.gap(8 * mm)
+    R.gap(12 * mm)                          # увеличенный отступ над "год, месяц, число"
     R.uline(xR + 81 * mm, 45 * mm, T["cap_date"])
     R.gap(8 * mm)
 
