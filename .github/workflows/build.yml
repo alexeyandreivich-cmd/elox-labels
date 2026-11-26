@@ -18,7 +18,13 @@ jobs:
         run: pip install reportlab xlrd openpyxl pyinstaller
 
       - name: Build exe
-        run: pyinstaller --onefile --noconsole --name EloxLabels elox_labels.py
+        shell: pwsh
+        run: |
+          if (Test-Path logo.png) {
+            pyinstaller --onefile --noconsole --add-data "logo.png;." --name EloxLabels elox_labels.py
+          } else {
+            pyinstaller --onefile --noconsole --name EloxLabels elox_labels.py
+          }
 
       - name: Upload exe
         uses: actions/upload-artifact@v4
