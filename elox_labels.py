@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 """
-Генератор этикеток (Data Sheet) и протоколов ПСИ (PSI) систем соединительных АО "ЭЛОКС-ПРОМ".
-Справочник типов и кодов — из файла 4.pdf. Макет этикетки — 1ru/1en.pdf, макет ПСИ — P1ru/P1en.
+Генератор этикеток (Data Sheet) и протоколов ПСИ систем соединительных АО "ЭЛОКС-ПРОМ".
+Справочник типов и кодов — из файла 4.pdf. Макеты: этикетка (альбомный, 2 колонки),
+ПСИ (портретный, таблица испытаний). Логотип вшивается в exe через --add-data "logo.png;.".
 Сборка: pyinstaller --onefile --noconsole --add-data "logo.png;." --name EloxLabels elox_labels.py
 """
 
@@ -30,12 +31,11 @@ from reportlab.lib.utils import ImageReader
 
 APP_TITLE = "ЭЛОКС-ПРОМ — генератор этикеток / Data Sheets / ПСИ"
 START_ROW_DEFAULT = 3
-COL_NAME, COL_QTY, COL_KKS, COL_UNIT = 4, 6, 7, 9
-COL_POZ = 2  # столбец C — Поз.
+COL_NAME, COL_QTY, COL_KKS, COL_UNIT, COL_POS = 4, 6, 7, 9, 2
 NB = "\u00a0"
 
 # =============================================================================
-#  СПРАВОЧНИК ИЗ 4.pdf: тип, ЭТ, DS, код RU(.R), код EN(.E)
+#  СПРАВОЧНИК ИЗ 4.pdf
 # =============================================================================
 TYPES_TABLE = [
     ("ЕА-М1250",     "ЕР.1.001.00-00 ЭТ", "ЕР.1.001.00-00 DS", "ED.S.A940.1.0UJA&&.JML&&&.092.ZB.0001.R", "ED.S.A940.1.0UJA&&.JML&&&.092.ZB.0001.E"),
@@ -52,7 +52,7 @@ TYPES_TABLE = [
     ("ЕА-А10",       "ЕР.1.012.00-00 ЭТ", "ЕР.1.012.00-00 DS", "ED.S.A940.1.0UJA&&.JML&&&.092.ZB.0012.R", "ED.S.A940.1.0UJA&&.JML&&&.092.ZB.0012.E"),
     ("ЕА-А12",       "ЕР.1.013.00-00 ЭТ", "ЕР.1.013.00-00 DS", "ED.S.A940.1.0UJA&&.JML&&&.092.ZB.0013.R", "ED.S.A940.1.0UJA&&.JML&&&.092.ZB.0013.E"),
     ("ЕА-А14",       "ЕР.1.014.00-00 ЭТ", "ЕР.1.014.00-00 DS", "ED.S.A940.1.0UJA&&.JML&&&.092.ZB.0014.R", "ED.S.A940.1.0UJA&&.JML&&&.092.ZB.0014.E"),
-    ("ЕА-А16",       "ЕР.1.015.00-00 ЭТ", "ЕР.1.015.00-00 DS", "ED.S.A940.1.0UJA&&.JML&&&.092.ZB.0015.R", "ED.S.A940.1.0UJA&&.JML&&&.092.ZB.0015.E"),
+    ("ЕА-А16",       "ЕР.1.015.00-00 ЭТ", "ЕР.1.015.01-00 DS", "ED.S.A940.1.0UJA&&.JML&&&.092.ZB.0015.R", "ED.S.A940.1.0UJA&&.JML&&&.092.ZB.0015.E"),
     ("ЕА-А16хк",     "ЕР.1.015.01-00 ЭТ", "ЕР.1.015.01-00 DS", "ED.S.A940.1.0UJA&&.JML&&&.092.ZB.0016.R", "ED.S.A940.1.0UJA&&.JML&&&.092.ZB.0016.E"),
     ("ЕА-А16ха",     "ЕР.1.015.02-00 ЭТ", "ЕР.1.015.02-00 DS", "ED.S.A940.1.0UJA&&.JML&&&.092.ZB.0017.R", "ED.S.A940.1.0UJA&&.JML&&&.092.ZB.0017.E"),
     ("ЕА-А18",       "ЕР.1.016.00-00 ЭТ", "ЕР.1.016.00-00 DS", "ED.S.A940.1.0UJA&&.JML&&&.092.ZB.0018.R", "ED.S.A940.1.0UJA&&.JML&&&.092.ZB.0018.E"),
@@ -82,11 +82,8 @@ def norm_type(s: str) -> str:
 
 TYPES = {norm_type(t): (t, ru, en, dr, de) for t, ru, en, dr, de in TYPES_TABLE}
 
-PSI_DOC = {"ru": "ED.S.A940.1.0UJA&&.JML&&&.092.ZH.0001.R",
-           "en": "ED.S.A940.1.0UJA&&.JML&&&.092.ZH.0001.E"}
-
 # =============================================================================
-#  ТЕКСТЫ ФОРМ ЭТИКЕТКИ (1ru.pdf / 1en.pdf)
+#  ТЕКСТЫ ЭТИКЕТОК
 # =============================================================================
 TEXTS = {
     "ru": {
@@ -178,76 +175,88 @@ TEXTS = {
 }
 
 # =============================================================================
-#  ТЕКСТЫ ФОРМ ПСИ (P2ru.pdf / P2en.pdf)
+#  ТЕКСТЫ ПРОТОКОЛОВ ПСИ (P2ru.pdf / P2en.pdf)
 # =============================================================================
-PSI = {
+PSI_TEXTS = {
     "ru": {
-        "t1": "ПРОТОКОЛ №: <i>ПСИ-1483/26-{num}</i>",
-        "t2": "приемо-сдаточных испытаний соединительных систем типа ЕА",
+        "report_pre": "ПРОТОКОЛ №: ",
+        "subtitle": "приемо-сдаточных испытаний соединительных систем типа ЕА",
         "info": [
             ("ИЗГОТОВИТЕЛЬ:", 'АО "ЭЛОКС-ПРОМ"'),
             ("ЗАКАЗ:", "ЭП-1483/24"),
-            ("НАИМЕНОВАНИЕ:", "Соединительные\nсистемы типа ЕА"),
+            ("НАИМЕНОВАНИЕ:", "Соединительные системы типа ЕА"),
             ("НАЗНАЧЕНИЕ:", 'АЭС "Эль-Дабаа"'),
-            ("НОРМАТИВНЫЕ\nДОКУМЕНТЫ:", "ТУ 6981-002-33680530-02\nЕР.1.001.000.00 ПМ3"),
+            ("НОРМАТИВНЫЕ ДОКУМЕНТЫ:", "ТУ 6981-002-33680530-02\nЕР.1.001.000.00 ПМ3"),
         ],
-        "top_head": ["Обозначение\nпо договору", "№\nпартии", "Кол-\nво", "Единицы\nизмерения\n(шт.; компл.)"],
-        "res_title": "РЕЗУЛЬТАТЫ ИСПЫТАНИЙ",
-        "res_head": ["Вид испытаний в\nсоответствии с\nТУ 6981-002-33680530-02",
-                     "Значение или пункт тре-\nбований по документации",
-                     "Оборудование", "Заклю-\nчение", "Дата, подпись"],
-        "res_rows": [
-            ("Проверка конструкции\n(п. 1.1, 1.2.1, 2.1\nТУ 6981-002-33680530-02)", "Монтажные листы\nЛисты комплектации", "Визуально", "С"),
-            ("Проверка материалов\n(п. 1.2.4 ТУ 6981-002-33680530-02)", "Инструкция на входной\nконтроль\nЕР.5.007.00 ИОК", "Визуально", "С"),
-            ("Проверка комплектности\n(п. 1.3 ТУ 6981-002-33680530-02)", "Монтажные листы\nЛисты комплектации", "Визуально", "С"),
-            ("Проверка маркировки\n(п. 1.4 ТУ 6981-002-33680530-02)", "Монтажные листы\nЛисты комплектации", "Визуально", "С"),
-            ("Проверка упаковки\n(п. 1.5 ТУ 6981-002-33680530-02)", "Инструкция на упаковку\nЕР.3.0000.000.00 И1\nЕР.3.0000.000.01 И1", "Визуально", "С"),
+        "h_des": "Обозначение по договору",
+        "h_batch": "№ партии",
+        "h_qty": "Кол-во",
+        "h_unit": "Единицы измерения (шт.; компл.)",
+        "results": "РЕЗУЛЬТАТЫ ИСПЫТАНИЙ",
+        "h_test": "Вид испытаний в соответствии с ТУ 6981-002-33680530-02",
+        "h_val": "Значение или пункт требований по документации",
+        "h_eq": "Оборудование",
+        "h_con": "Заключение",
+        "h_date": "Дата, подпись",
+        "tests": [
+            (["Проверка конструкции", "(п. 1.1, 1.2.1, 2.1", "ТУ 6981-002-33680530-02)"], ["Монтажные листы", "Листы комплектации"]),
+            (["Проверка материалов", "(п. 1.2.4 ТУ 6981-002-33680530-02)"], ["Инструкция на входной контроль", "ЕР.5.007.00 ИОК"]),
+            (["Проверка комплектности", "(п. 1.3 ТУ 6981-002-33680530-02)"], ["Монтажные листы", "Листы комплектации"]),
+            (["Проверка маркировки", "(п. 1.4 ТУ 6981-002-33680530-02)"], ["Монтажные листы", "Листы комплектации"]),
+            (["Проверка упаковки", "(п. 1.5 ТУ 6981-002-33680530-02)"], ["Инструкция на упаковку", "ЕР.3.0000.000.00 И1", "ЕР.3.0000.000.01 И1"]),
         ],
-        "signs": "Условные обозначения:   С – соответствует,   NC – не соответствует,   CR – соответствует после ремонта",
-        "ult_title": "ОКОНЧАТЕЛЬНОЕ СООТВЕТСТВИЕ",
-        "ult_text": "Соединительные системы соответствуют требованиям ТУ 6981-002-33680530-02",
-        "sig_l": "ИНЖЕНЕР ОТК",
-        "sig_r": "РУКОВОДИТЕЛЬ СОК",
-        "fam": "ФАМИЛИЯ:",
-        "pod": "ПОДПИСЬ:",
-        "dat": "ДАТА      :",
+        "eq": "Визуально",
+        "concl": "С",
+        "signs": "<b>Условные обозначения:</b> <b>С</b> – соответствует, <b>NC</b> – не соответствует, <b>CR</b> – соответствует после ремонта",
+        "ultimate": "ОКОНЧАТЕЛЬНОЕ СООТВЕТСТВИЕ",
+        "ultimate_txt": "Соединительные системы соответствуют требованиям ТУ 6981-002-33680530-02",
+        "sig1": "ИНЖЕНЕР ОТК",
+        "sig2": "РУКОВОДИТЕЛЬ СОК",
+        "f_name": "ФАМИЛИЯ:",
+        "f_sign": "ПОДПИСЬ:",
+        "f_date": "ДАТА",
         "mp": "м. п.",
-        "unit_kompl": "компл",
-        "unit_sht": "шт",
+        "code": "ED.S.A940.1.0UJA&&.JML&&&.092.ZH.0001.R",
     },
     "en": {
-        "t1": "REPORT №: <i>PSI-1483/26-{num}</i>",
-        "t2": "Acceptance Tests of Connecting Systems, Type EA",
+        "report_pre": "REPORT №: ",
+        "subtitle": "Acceptance Tests of Connecting Systems, Type EA",
         "info": [
             ("MANUFACTURER:", "ELOX-PROM, JSC"),
             ("ORDER:", "ЕР-1483/24"),
-            ("ITEM NAME :", "Connecting systems,\ntype EA"),
+            ("ITEM NAME :", "Connecting systems, type EA"),
             ("SITE :", "El-Dabaa NPP"),
-            ("REGULATORY:\nDOCUMENTS", "TU 6981-002-33680530-02\nЕР.1.001.000.00 PM3"),
+            ("REGULATORY: DOCUMENTS", "TU 6981-002-33680530-02\nEP.1.001.000.00 PM3"),
         ],
-        "top_head": ["Designation as per\nthe contract", "№\nof batch", "QTY", "Measuring\nunits\n(pc; set)"],
-        "res_title": "TEST RESULTS",
-        "res_head": ["Type of test in accordance\nwith Specifications\nTU 6981-002-33680530-02",
-                     "Value or item of the\nrequirements as per docu-\nmentation",
-                     "Test equipment", "Conclu-\nsion", "Date, signature"],
-        "res_rows": [
-            ("Check of design\n(it. 1.1, 1.2.1, 2.1\nTU 6981-002-33680530-02)", "Installation Sheets\nComponent Parts Lists", "Visual inspection", "C"),
-            ("Check of materials\n(it.1.2.4 TU 6981-002-33680530-02)", "Incoming Inspection\nInstructions\nЕР.5.007.00 QAI", "Visual inspection", "C"),
-            ("Check of completeness\n(it.1.3 TU 6981-002-33680530-02)", "Installation Sheets\nComponent Parts Lists", "Visual inspection", "C"),
-            ("Marking Check\n(it.1.4 TU 6981-002-33680530-02)", "Installation Sheets\nComponent Parts Lists", "Visual inspection", "C"),
-            ("Check of packaging\n(it.1.5 TU 6981-002-33680530-02)", "Packing Instructions\nЕР.3.0000.000.00 I1\nЕР.3.0000.000.01 I1", "Visual inspection", "C"),
+        "h_des": "Designation as per the contract",
+        "h_batch": "№ of batch",
+        "h_qty": "QTY",
+        "h_unit": "Measuring units (pc; set)",
+        "results": "TEST RESULTS",
+        "h_test": "Type of test in accordance with Specifications TU 6981-002-33680530-02",
+        "h_val": "Value or item of the requirements as per documentation",
+        "h_eq": "Test equipment",
+        "h_con": "Conclusion",
+        "h_date": "Date, signature",
+        "tests": [
+            (["Check of design", "(it. 1.1, 1.2.1, 2.1", "TU 6981-002-33680530-02)"], ["Installation Sheets", "Component Parts Lists"]),
+            (["Check of materials", "(it.1.2.4 TU 6981-002-33680530-02)"], ["Incoming Inspection Instructions", "EP.5.007.00 QAI"]),
+            (["Check of completeness", "(it.1.3 TU 6981-002-33680530-02)"], ["Installation Sheets", "Component Parts Lists"]),
+            (["Marking Check", "(it.1.4 TU 6981-002-33680530-02)"], ["Installation Sheets", "Component Parts Lists"]),
+            (["Check of packaging", "(it.1.5 TU 6981-002-33680530-02)"], ["Packing Instructions", "EP.3.0000.000.00 I1", "EP.3.0000.000.01 I1"]),
         ],
-        "signs": "Conventional signs:   C – conformance,   NC – non-conformance,   CR – conformance after repair",
-        "ult_title": "ULTIMATE CONFORMANCE",
-        "ult_text": "Connecting systems comply with the requirements of Specifications TU 6981-002-33680530-02",
-        "sig_l": "ENGINEER OF QCD",
-        "sig_r": "HEAD OF QAS",
-        "fam": "NAME      :",
-        "pod": "SIGNATURE:",
-        "dat": "DATE      :",
+        "eq": "Visual inspection",
+        "concl": "C",
+        "signs": "<b>Conventional signs:</b> <b>C</b> – conformance, <b>NC</b> – non-conformance, <b>CR</b> – conformance after repair",
+        "ultimate": "ULTIMATE CONFORMANCE",
+        "ultimate_txt": "Connecting systems comply with the requirements of Specifications TU 6981-002-33680530-02",
+        "sig1": "ENGINEER OF QCD",
+        "sig2": "HEAD OF QAS",
+        "f_name": "NAME",
+        "f_sign": "SIGNATURE:",
+        "f_date": "DATE",
         "mp": "stamp here",
-        "unit_kompl": "set",
-        "unit_sht": "pc",
+        "code": "ED.S.A940.1.0UJA&&.JML&&&.092.ZH.0001.E",
     },
 }
 
@@ -429,15 +438,6 @@ def unit_en(u, q):
     return u
 
 
-def unit_raw_ru(u):
-    u = (u or "").strip().lower().rstrip(".")
-    return {"компл": "компл", "шт": "шт"}.get(u, u)
-
-
-def unit_raw_en(u, q):
-    return unit_en(u, q) + "."
-
-
 def parse_rows(rows, start_row):
     records, warnings, skipped = [], [], 0
     for i in range(start_row - 1, len(rows)):
@@ -469,35 +469,55 @@ def parse_rows(rows, start_row):
             warnings.append(f"Строка {i+1}: тип «{typ}» не найден в справочнике (4.pdf).")
             ref = (typ, "", "", "", "")
         u = get(COL_UNIT)
-        poz_raw = get(COL_POZ)
+        pos_raw = get(COL_POS)
         try:
-            poz = float(poz_raw.replace(",", "."))
-            poz_s = ""
+            pos = float(pos_raw.replace(",", "."))
         except ValueError:
-            poz = 1e18
-            poz_s = poz_raw
+            pos = float("inf")
         records.append({
             "row": i + 1, "type": ref[0], "label_ru": ref[1], "label_en": ref[2],
             "doc_ru": ref[3], "doc_en": ref[4],
             "tail": tail, "kks": kks, "qty": qty,
-            "qty_str": fmt_qty(qty), "unit_ru": unit_ru(u), "unit_en": unit_en(u, q := qty),
-            "psi_unit_ru": unit_raw_ru(u), "psi_unit_en": unit_raw_en(u, qty),
-            "poz": poz, "poz_s": poz_s,
+            "qty_str": fmt_qty(qty), "unit_ru": unit_ru(u), "unit_en": unit_en(u, qty),
+            "unit_raw": u.strip().lower().rstrip("."), "pos": pos,
         })
     return records, warnings, skipped
 
 
-def sorted_records(records, do_sort):
-    recs = list(records)
-    if do_sort:
-        recs.sort(key=lambda r: (r["doc_ru"], r["poz"], r["poz_s"], r["row"]))
-    return recs
+def order_records(records, sort_by_code):
+    if not sort_by_code:
+        return list(records)
+    return sorted(records, key=lambda r: (r["doc_ru"] or "ZZZ", r["pos"], r["row"]))
+
+
+def paginate_psi(records, code_split):
+    pages, cur, cur_code = [], [], None
+    for rec in records:
+        code = rec["doc_ru"]
+        if cur and (len(cur) >= 10 or (code_split and code != cur_code)):
+            pages.append(cur)
+            cur = []
+        if not cur:
+            cur_code = code
+        cur.append(rec)
+    if cur:
+        pages.append(cur)
+    return pages
+
+
+def psi_unit(lang, rec):
+    u = rec["unit_raw"]
+    if lang == "ru":
+        return "компл" if u == "компл" else "шт"
+    if u == "компл":
+        return "set." if rec["qty"] == 1 else "sets."
+    return "pc." if rec["qty"] == 1 else "pcs."
 
 
 # =============================================================================
 #  ШРИФТЫ И ЛОГОТИП
 # =============================================================================
-FONT, FONT_B, FONT_I = "Helvetica", "Helvetica-Bold", "Helvetica"
+FONT, FONT_B, FONT_I, FONT_BI = "Helvetica", "Helvetica-Bold", "Helvetica", "Helvetica-Bold"
 
 
 def app_dir():
@@ -512,7 +532,7 @@ def resource(name):
 
 
 def register_fonts():
-    global FONT, FONT_B, FONT_I
+    global FONT, FONT_B, FONT_I, FONT_BI
     win = os.path.join(os.environ.get("WINDIR", r"C:\Windows"), "Fonts")
     regular = [resource("fonts/DejaVuSans.ttf"), os.path.join(app_dir(), "DejaVuSans.ttf"),
                os.path.join(win, "arial.ttf"), os.path.join(win, "calibri.ttf"),
@@ -523,6 +543,9 @@ def register_fonts():
     ital = [resource("fonts/DejaVuSans-Oblique.ttf"), os.path.join(app_dir(), "DejaVuSans-Oblique.ttf"),
             os.path.join(win, "ariali.ttf"), os.path.join(win, "calibrii.ttf"),
             os.path.join(win, "segoeuii.ttf"), os.path.join(win, "timesi.ttf")]
+    bital = [resource("fonts/DejaVuSans-BoldOblique.ttf"), os.path.join(app_dir(), "DejaVuSans-BoldOblique.ttf"),
+             os.path.join(win, "arialbi.ttf"), os.path.join(win, "calibrib.ttf"),
+             os.path.join(win, "segoeuiz.ttf"), os.path.join(win, "timesbi.ttf")]
     ok = False
     for p in regular:
         if os.path.isfile(p):
@@ -549,8 +572,22 @@ def register_fonts():
                 break
             except Exception:
                 pass
-    if FONT_B == "Helvetica-Bold" and ok:
-        FONT_B = FONT
+    for p in bital:
+        if os.path.isfile(p):
+            try:
+                pdfmetrics.registerFont(TTFont("LBL-BI", p))
+                FONT_BI = "LBL-BI"
+                break
+            except Exception:
+                pass
+    if ok:
+        if FONT_B == "Helvetica-Bold":
+            FONT_B = FONT
+        if FONT_I == "Helvetica":
+            FONT_I = FONT
+        if FONT_BI == "Helvetica-Bold":
+            FONT_BI = FONT_B
+        pdfmetrics.registerFontFamily("LBL", normal=FONT, bold=FONT_B, italic=FONT_I, boldItalic=FONT_BI)
     if not ok:
         raise RuntimeError("Не найден шрифт с кириллицей (arial.ttf / DejaVuSans.ttf).")
 
@@ -612,36 +649,31 @@ def draw_logo(c, cx, cy, h):
 
 
 # =============================================================================
-#  РАМКА ВНИЗУ: [ код | номер страницы ] — размеры окошек неизменяемы
+#  ГЕОМЕТРИЯ
 # =============================================================================
-_ALL_CODES = [r[3] for r in TYPES_TABLE] + [r[4] for r in TYPES_TABLE] + list(PSI_DOC.values())
-CELL1_W = max(pdfmetrics.stringWidth(x, "Times-Roman", 10) for x in _ALL_CODES) + 6 * mm
-CELL2_W = pdfmetrics.stringWidth("0000", "Times-Roman", 10) + 6 * mm
-BOX_H, BOX_Y = 7 * mm, 7 * mm
-
-
-def draw_footer(c, page_w, code, page_no):
-    total = CELL1_W + CELL2_W
-    x = (page_w - total) / 2.0
-    c.setStrokeColor(colors.black)
-    c.setLineWidth(0.8)
-    c.rect(x, BOX_Y, total, BOX_H)
-    c.line(x + CELL1_W, BOX_Y, x + CELL1_W, BOX_Y + BOX_H)
-    c.setFont("Times-Roman", 10)
-    c.drawCentredString(x + CELL1_W / 2.0, BOX_Y + (BOX_H - 10) / 2.0 + 1, code)
-    c.drawCentredString(x + CELL1_W + CELL2_W / 2.0, BOX_Y + (BOX_H - 10) / 2.0 + 1, str(page_no))
-
-
-# =============================================================================
-#  МАКЕТ ЭТИКЕТКИ (альбомный, две колонки)
-# =============================================================================
-PAGE_W, PAGE_H = landscape(A4)
+PAGE_W, PAGE_H = landscape(A4)          # лист этикетки — альбомный
+LPAGE_W, LPAGE_H = A4                   # лист ПСИ — портретный
 LEFT_M, RIGHT_M, TOP_M = 14 * mm, 12 * mm, 12 * mm
 GUTTER = 10 * mm
 COL_W = (PAGE_W - LEFT_M - RIGHT_M - GUTTER) / 2.0
+BOX_H, BOX_Y = 7 * mm, 7 * mm
 AVAIL_TOP = PAGE_H - TOP_M
 AVAIL_BOT = BOX_Y + BOX_H + 4 * mm
 AVAIL = AVAIL_TOP - AVAIL_BOT
+CODE_WIN_W = 80 * mm                    # неизменное окошко кода
+NUM_WIN_W = 14 * mm                     # неизменное окошко номера (4 знака)
+
+
+def draw_code_frame(c, code, num, page_w):
+    """Рамка внизу: два смежных окошка фиксированного размера — код и номер."""
+    bx = (page_w - (CODE_WIN_W + NUM_WIN_W)) / 2.0
+    c.setStrokeColor(colors.black)
+    c.setLineWidth(0.8)
+    c.rect(bx, BOX_Y, CODE_WIN_W, BOX_H)
+    c.rect(bx + CODE_WIN_W, BOX_Y, NUM_WIN_W, BOX_H)
+    c.setFont("Times-Roman", 9.5)
+    c.drawCentredString(bx + CODE_WIN_W / 2.0, BOX_Y + (BOX_H - 9.5) / 2.0 + 1, code)
+    c.drawCentredString(bx + CODE_WIN_W + NUM_WIN_W / 2.0, BOX_Y + (BOX_H - 9.5) / 2.0 + 1, str(num))
 
 
 def plural_ru(n, forms):
@@ -703,7 +735,10 @@ class Flow:
                 c.drawCentredString(x + w / 2.0, self.y - 7, caption)
 
 
-def render_label(c, rec, man, lang, fs=10.0, dry=False, page_no=1):
+# =============================================================================
+#  ЭТИКЕТКА
+# =============================================================================
+def render_label(c, rec, man, lang, page_no, fs=10.0, dry=False):
     T = TEXTS[lang]
     typ = rec["type"]
     label = rec["label_ru"] if lang == "ru" else rec["label_en"]
@@ -808,14 +843,15 @@ def render_label(c, rec, man, lang, fs=10.0, dry=False, page_no=1):
     R.uline(xR + 81 * mm, 45 * mm, T["cap_date"])
     R.gap(8 * mm)
 
+    code = ""
     if man.get("show_doc", True):
         code = rec["doc_ru"] if lang == "ru" else rec["doc_en"]
-        if code and not dry:
-            draw_footer(c, PAGE_W, code, page_no)
+    if code and not dry:
+        draw_code_frame(c, code, page_no, PAGE_W)
     return y0 - min(L.y, R.y)
 
 
-def make_pdf(path, records, man, lang, progress=None):
+def make_labels_pdf(path, records, man, lang, progress=None):
     c = canvas.Canvas(path, pagesize=landscape(A4))
     c.setTitle("Этикетки / Data Sheets " + ("RU" if lang == "ru" else "EN"))
     c.setAuthor("ELOX-PROM JSC")
@@ -823,9 +859,9 @@ def make_pdf(path, records, man, lang, progress=None):
         size = 10.0
         for fs in (10.0, 9.5, 9.0, 8.5, 8.0, 7.5, 7.0):
             size = fs
-            if render_label(c, rec, man, lang, fs=fs, dry=True, page_no=i) <= AVAIL:
+            if render_label(c, rec, man, lang, i, fs=fs, dry=True) <= AVAIL:
                 break
-        render_label(c, rec, man, lang, fs=size, dry=False, page_no=i)
+        render_label(c, rec, man, lang, i, fs=size, dry=False)
         c.showPage()
         if progress:
             progress(i)
@@ -833,182 +869,170 @@ def make_pdf(path, records, man, lang, progress=None):
 
 
 # =============================================================================
-#  МАКЕТ ПСИ (портретный, как P1ru/P1en)
+#  ПРОТОКОЛ ПСИ (портретный)
 # =============================================================================
-PW, PH = A4
-PX0, PX1 = 40.0, PW - 40.0
-PY_TOP = 800.0
+def _ps(c, text, x, y, w, size=9.0, bold=False, ital=False, align=TA_LEFT, lead=None):
+    """Paragraph с абсолютной позицией; возвращает высоту."""
+    fn = FONT_BI if (bold and ital) else FONT_B if bold else FONT_I if ital else FONT
+    st = ParagraphStyle("p", fontName=fn, fontSize=size, leading=lead or size * 1.2,
+                        alignment=align, textColor=colors.black)
+    p = Paragraph(text, st)
+    _, h = p.wrap(w, 10000)
+    p.drawOn(c, x, y - h)
+    return h
 
 
-def _ml(c, x, y, text, size=9.5, bold=False, ital=False):
-    """многострочный текст слева"""
-    c.setFont(FONT_B if bold else (FONT_I if ital else FONT), size)
-    dy = 0
-    for ln in str(text).split("\n"):
-        c.drawString(x, y - dy, ln)
-        dy += size * 1.25
-    return dy
-
-
-def _mc(c, x, y, text, size=9.5, bold=False, ital=False):
-    c.setFont(FONT_B if bold else (FONT_I if ital else FONT), size)
-    dy = 0
-    lines = str(text).split("\n")
-    for ln in lines:
-        c.drawCentredString(x, y - dy, ln)
-        dy += size * 1.25
-    return dy
-
-
-def _wrap_h(text, width, size=9.0, bold=False, ital=False, align=TA_CENTER):
-    st = ParagraphStyle("w", fontName=FONT_B if bold else (FONT_I if ital else FONT),
-                        fontSize=size, leading=size * 1.2, alignment=align)
-    p = Paragraph(str(text).replace("\n", "<br/>"), st)
-    _, h = p.wrap(width, 10000)
-    return p, h
-
-
-def render_psi_page(c, rows, page_idx, man, lang):
-    T = PSI[lang]
-    num = f"{int(man['psi_start']) + page_idx:03d}"
-    c.setLineWidth(1.2)
-    c.setStrokeColor(colors.black)
+def render_psi(c, recs, page_no, report_no, lang):
+    T = PSI_TEXTS[lang]
+    X0, X1 = 15 * mm, LPAGE_W - 15 * mm
+    W = X1 - X0
+    y = LPAGE_H - 12 * mm
+    top = y
 
     # --- шапка ---
-    y_hdr0, y_hdr1 = PY_TOP, PY_TOP - 40
-    c.rect(PX0, y_hdr1, PX1 - PX0, y_hdr0 - y_hdr1)
-    st = ParagraphStyle("h1", fontName=FONT_B, fontSize=11, leading=14, alignment=TA_CENTER)
-    p1 = Paragraph(T["t1"].format(num=num), st)
-    p2 = Paragraph(T["t2"], st)
-    p1.drawOn(c, PX0, y_hdr0 - 16)
-    p2.drawOn(c, PX0, y_hdr0 - 30)
+    y -= 6 * mm
+    _ps(c, f'<b>{esc(T["report_pre"])}<i>PSI-1483/26-{report_no:03d}</i></b>',
+        X0, y, W, size=10.5, align=TA_CENTER)
+    y -= 5 * mm
+    _ps(c, f'<b>{esc(T["subtitle"])}</b>', X0, y, W, size=10, align=TA_CENTER)
+    y -= 3 * mm
 
     # --- верхняя таблица ---
-    y_t0 = y_hdr1
-    left_w = 235.0
-    xl2 = PX0 + left_w
-    cw = [105.0, 100.0, 30.0, (PX1 - xl2) - 235.0]
-    hdr_h = 26.0
-    row_h = 15.5
-    y_t1 = y_t0 - hdr_h - 10 * row_h
-    c.rect(PX0, y_t1, PX1 - PX0, y_t0 - y_t1)
-    c.line(xl2, y_t0, xl2, y_t1)
-    c.line(PX0, y_t0 - hdr_h, PX1, y_t0 - hdr_h)
-    xs = [xl2, xl2 + cw[0], xl2 + cw[0] + cw[1], xl2 + cw[0] + cw[1] + cw[2], PX1]
-    for x in xs[1:-1]:
-        c.line(x, y_t0, x, y_t1)
-    for i in range(1, 10):
-        c.line(xl2, y_t0 - hdr_h - i * row_h, PX1, y_t0 - hdr_h - i * row_h)
-    # заголовки правой части
-    for i, htxt in enumerate(T["top_head"]):
-        p, h = _wrap_h(htxt, cw[i] - 6, size=8.5, bold=True)
-        p.drawOn(c, xs[i] + 3, y_t0 - 4 - h + 4)
-    # левая информационная ячейка
-    yy = y_t0 - 22
-    for lab, val in T["info"]:
-        dh = _ml(c, PX0 + 6, yy, lab, size=9.5, bold=True)
-        p, h = _wrap_h(val, left_w - 105, size=9.5, ital=True, align=TA_LEFT)
-        p.drawOn(c, PX0 + 100, yy)
-        yy -= max(dh, h) + 12
-    # строки данных
+    cols = [28 * mm, 44 * mm, 38 * mm, 38 * mm, 12 * mm, 20 * mm]
+    head_h, row_h = 9 * mm, 5.4 * mm
+    tbl_h = head_h + 10 * row_h
+    y0t = y
+    c.setLineWidth(0.8)
+    # левый инфоблок (спан на все строки)
+    lx0, lx1 = X0, X0 + cols[0] + cols[1]
+    c.rect(lx0, y0t - tbl_h, lx1 - lx0, tbl_h)
+    step = tbl_h / 5.0
+    for i, (lab, val) in enumerate(T["info"]):
+        yy = y0t - i * step - 3 * mm
+        _ps(c, f'<b>{esc(lab)}</b>', lx0 + 2 * mm, yy, cols[0] - 3 * mm, size=9)
+        lines = val.split("\n")
+        vy = yy
+        for ln in lines:
+            h = _ps(c, f'<i>{esc(ln)}</i>', lx0 + cols[0] + 1 * mm, vy, cols[1] - 4 * mm, size=9)
+            vy -= h + 1
+    # правая сетка
+    rx = lx1
+    xs = [rx]
+    for wdt in cols[2:]:
+        xs.append(xs[-1] + wdt)
+    c.rect(rx, y0t - tbl_h, xs[-1] - rx, tbl_h)
+    c.line(rx, y0t - head_h, xs[-1], y0t - head_h)
+    for r in range(1, 10):
+        c.line(rx, y0t - head_h - r * row_h, xs[-1], y0t - head_h - r * row_h)
+    for xx in xs[1:-1]:
+        c.line(xx, y0t, xx, y0t - tbl_h)
+    heads = [T["h_des"], T["h_batch"], T["h_qty"], T["h_unit"]]
+    for j, htxt in enumerate(heads):
+        _ps(c, f'<b>{esc(htxt)}</b>', xs[j] + 1 * mm, y0t - 2 * mm, xs[j + 1] - xs[j] - 2 * mm,
+            size=8.5, align=TA_CENTER)
     for r in range(10):
-        yrow = y_t0 - hdr_h - r * row_h
-        if r < len(rows):
-            rec = rows[r]
-            p, _ = _wrap_h(esc(rec["tail"]), cw[0] - 6, size=9)
-            p.drawOn(c, xs[0] + 3, yrow - 12)
-            p, _ = _wrap_h(esc(rec["kks"]), cw[1] - 6, size=9)
-            p.drawOn(c, xs[1] + 3, yrow - 12)
-            c.setFont(FONT, 9)
-            c.drawCentredString(xs[2] + cw[2] / 2.0, yrow - 12, rec["qty_str"])
-            u = rec["psi_unit_ru"] if lang == "ru" else rec["psi_unit_en"]
-            c.drawCentredString(xs[3] + cw[3] / 2.0, yrow - 12, u)
+        ry = y0t - head_h - r * row_h
+        rec = recs[r] if r < len(recs) else None
+        vals = ["", "", "", ""]
+        if rec:
+            vals = [rec["tail"], rec["kks"], rec["qty_str"], psi_unit(lang, rec)]
+        for j, v in enumerate(vals):
+            _ps(c, esc(v), xs[j] + 1 * mm, ry - 1.6 * mm, xs[j + 1] - xs[j] - 2 * mm,
+                size=8.5, align=TA_CENTER)
+    y = y0t - tbl_h
 
     # --- РЕЗУЛЬТАТЫ ИСПЫТАНИЙ ---
-    y_r0 = y_t1
-    y_r1 = y_r0 - 16
-    c.rect(PX0, y_r1, PX1 - PX0, y_r0 - y_r1)
-    _mc(c, (PX0 + PX1) / 2.0, y_r0 - 11, T["res_title"], size=10, bold=True)
-    y_h0 = y_r1
-    y_h1 = y_h0 - 32
-    rx = [PX0, PX0 + 175, PX0 + 320, PX0 + 415, PX0 + 460, PX1]
-    c.rect(PX0, y_h1, PX1 - PX0, y_h0 - y_h1)
-    for x in rx[1:-1]:
-        c.line(x, y_h0, x, y_h1)
-    for i, htxt in enumerate(T["res_head"]):
-        p, h = _wrap_h(htxt, rx[i + 1] - rx[i] - 6, size=8.5, bold=True)
-        p.drawOn(c, rx[i] + 3, y_h0 - 4)
-    row_hs = 38.0
-    y_b0 = y_h1
-    y_b1 = y_b0 - 5 * row_hs
-    c.rect(PX0, y_b1, PX1 - PX0, y_b0 - y_b1)
-    for i in range(1, 5):
-        c.line(PX0, y_b0 - i * row_hs, PX1, y_b0 - i * row_hs)
-    for x in rx[1:-1]:
-        c.line(x, y_b0, x, y_b1)
-    for i, (a, b, eq, concl) in enumerate(T["res_rows"]):
-        ytop = y_b0 - i * row_hs
-        p, _ = _wrap_h(a, rx[1] - rx[0] - 8, size=9, bold=False, align=TA_LEFT)
-        p.drawOn(c, rx[0] + 4, ytop - 6)
-        p, _ = _wrap_h(b, rx[2] - rx[1] - 8, size=9, bold=True)
-        p.drawOn(c, rx[1] + 4, ytop - 8)
-        p, _ = _wrap_h(eq, rx[3] - rx[2] - 8, size=9, bold=True)
-        p.drawOn(c, rx[2] + 4, ytop - 14)
-        c.setFont(FONT_I, 10)
-        c.drawCentredString(rx[3] + (rx[4] - rx[3]) / 2.0, ytop - 16, concl)
+    c.rect(X0, y - 6 * mm, W, 6 * mm)
+    _ps(c, f'<b>{esc(T["results"])}</b>', X0, y - 1.6 * mm, W, size=9.5, align=TA_CENTER)
+    y -= 6 * mm
+
+    rcols = [52 * mm, 46 * mm, 32 * mm, 18 * mm, 32 * mm]
+    rxs = [X0]
+    for wdt in rcols:
+        rxs.append(rxs[-1] + wdt)
+    rh_h, trow_h = 10 * mm, 13.5 * mm
+    c.rect(X0, y - rh_h, W, rh_h)
+    for xx in rxs[1:-1]:
+        c.line(xx, y, xx, y - rh_h)
+    for j, htxt in enumerate([T["h_test"], T["h_val"], T["h_eq"], T["h_con"], T["h_date"]]):
+        _ps(c, f'<b>{esc(htxt)}</b>', rxs[j] + 1.5 * mm, y - 2 * mm, rcols[j] - 3 * mm,
+            size=8.5, align=TA_CENTER)
+    y -= rh_h
+    for t_lines, v_lines in T["tests"]:
+        c.rect(X0, y - trow_h, W, trow_h)
+        for xx in rxs[1:-1]:
+            c.line(xx, y, xx, y - trow_h)
+        ty = y - 3 * mm
+        for k, ln in enumerate(t_lines):
+            h = _ps(c, f'<b>{esc(ln)}</b>' if k == 0 else esc(ln),
+                    rxs[0] + 2 * mm, ty, rcols[0] - 4 * mm, size=8.5)
+            ty -= h + 1
+        vy = y - trow_h / 2.0 + len(v_lines) * 2 * mm
+        for ln in v_lines:
+            h = _ps(c, f'<b>{esc(ln)}</b>', rxs[1] + 1.5 * mm, vy, rcols[1] - 3 * mm,
+                    size=8.5, align=TA_CENTER)
+            vy -= h + 1
+        _ps(c, f'<b>{esc(T["eq"])}</b>', rxs[2] + 1.5 * mm, y - trow_h / 2.0 + 2 * mm,
+            rcols[2] - 3 * mm, size=8.5, align=TA_CENTER)
+        _ps(c, f'<i>{esc(T["concl"])}</i>', rxs[3] + 1.5 * mm, y - trow_h / 2.0 + 2 * mm,
+            rcols[3] - 3 * mm, size=8.5, align=TA_CENTER)
+        y -= trow_h
 
     # --- условные обозначения ---
-    y_s0 = y_b1
-    y_s1 = y_s0 - 18
-    c.rect(PX0, y_s1, PX1 - PX0, y_s0 - y_s1)
-    c.setFont(FONT_B, 9.5)
-    c.drawString(PX0 + 6, y_s0 - 12, T["signs"].split("   ")[0])
-    c.setFont(FONT, 9.5)
-    c.drawString(PX0 + 6 + pdfmetrics.stringWidth(T["signs"].split("   ")[0], FONT_B, 9.5) + 20,
-                 y_s0 - 12, "   ".join(T["signs"].split("   ")[1:]))
+    c.rect(X0, y - 7 * mm, W, 7 * mm)
+    _ps(c, T["signs"], X0 + 2 * mm, y - 2.2 * mm, W - 4 * mm, size=8.5)
+    y -= 7 * mm
 
     # --- окончательное соответствие ---
-    y_u0 = y_s1
-    y_u1 = y_u0 - 80
-    c.rect(PX0, y_u1, PX1 - PX0, y_u0 - y_u1)
-    _mc(c, (PX0 + PX1) / 2.0, y_u0 - 18, T["ult_title"], size=10.5, bold=True)
-    bw, bh = 240.0, 30.0
-    bx = (PX0 + PX1) / 2.0 - bw / 2.0
-    by = y_u0 - 62
+    ult_h = 40 * mm
+    c.rect(X0, y - ult_h, W, ult_h)
+    _ps(c, f'<b>{esc(T["ultimate"])}</b>', X0, y - 8 * mm, W, size=10, align=TA_CENTER)
+    sw, sh_ = 62 * mm, 11 * mm
+    sx = (LPAGE_W - sw) / 2.0
+    sy = y - ult_h / 2.0 - sh_ / 2.0
     c.setFillColor(colors.Color(0.75, 0.75, 0.75))
-    c.rect(bx + 4, by - 4, bw, bh, stroke=0, fill=1)
+    c.rect(sx + sw, sy, 2 * mm, sh_, stroke=0, fill=1)
     c.setFillColor(colors.white)
-    c.rect(bx, by, bw, bh, stroke=1, fill=1)
-    _mc(c, (PX0 + PX1) / 2.0, y_u1 + 14, T["ult_text"], size=10.5)
+    c.rect(sx, sy, sw, sh_, stroke=1, fill=1)
+    c.setFillColor(colors.black)
+    _ps(c, esc(T["ultimate_txt"]), X0, y - ult_h + 8 * mm, W, size=10.5, align=TA_CENTER)
+    y -= ult_h
 
     # --- подписи ---
-    y_g0 = y_u1
-    y_g1 = y_g0 - 68
-    c.rect(PX0, y_g1, PX1 - PX0, y_g0 - y_g1)
-    mid = (PX0 + PX1) / 2.0
-    c.line(mid, y_g0, mid, y_g1)
-    for half, title in ((0, T["sig_l"]), (1, T["sig_r"])):
-        x0 = PX0 if half == 0 else mid
-        x1 = mid if half == 0 else PX1
-        _mc(c, (x0 + x1) / 2.0, y_g0 - 16, title, size=10, bold=True)
-        _ml(c, x0 + 8, y_g0 - 32, T["fam"], size=9.5, bold=True)
-        _ml(c, x0 + 8, y_g0 - 47, T["pod"], size=9.5, bold=True)
-        _ml(c, x0 + 8, y_g0 - 62, T["dat"], size=9.5, bold=True)
-        c.setFont(FONT_I, 9)
-        c.drawRightString(x1 - 10, y_g0 - 47, T["mp"])
+    sig_h = 32 * mm
+    c.rect(X0, y - sig_h, W, sig_h)
+    mid = X0 + W / 2.0
+    c.line(mid, y, mid, y - sig_h)
+    for half, title in ((X0, T["sig1"]), (mid, T["sig2"])):
+        hw = W / 2.0
+        _ps(c, f'<b>{esc(title)}</b>', half, y - 7 * mm, hw, size=9.5, align=TA_CENTER)
+        _ps(c, f'<b>{esc(T["f_name"])}</b>', half + 6 * mm, y - 13 * mm, 30 * mm, size=9)
+        c.drawString(half + 34 * mm, y - 13 * mm, ":")
+        _ps(c, f'<b>{esc(T["f_sign"])}</b>', half + 6 * mm, y - 19 * mm, 30 * mm, size=9)
+        c.setFont(FONT_I, 8.5)
+        c.drawString(half + hw - 26 * mm, y - 19 * mm, T["mp"])
+        _ps(c, f'<b>{esc(T["f_date"])}</b>', half + 6 * mm, y - 25 * mm, 30 * mm, size=9)
+        c.drawString(half + 34 * mm, y - 25 * mm, ":")
+    y -= sig_h
 
-    draw_footer(c, PW, PSI_DOC[lang], page_idx + 1)
+    # --- внешняя рамка ---
+    c.setLineWidth(1.2)
+    c.rect(X0, y, W, top - y)
+    c.setLineWidth(0.8)
+
+    draw_code_frame(c, T["code"], page_no, LPAGE_W)
 
 
 def make_psi_pdf(path, pages, man, lang, progress=None):
     c = canvas.Canvas(path, pagesize=A4)
     c.setTitle("ПСИ / PSI " + ("RU" if lang == "ru" else "EN"))
     c.setAuthor("ELOX-PROM JSC")
-    for i, rows in enumerate(pages):
-        render_psi_page(c, rows, i, man, lang)
+    start = man["psi_start"]
+    for i, page_recs in enumerate(pages, 1):
+        render_psi(c, page_recs, i, start + i - 1, lang)
         c.showPage()
         if progress:
-            progress(i + 1)
+            progress(i)
     c.save()
 
 
@@ -1024,7 +1048,6 @@ FIELDS = [
     ("date",     "Дата изготовления (необязательно)", "", 20),
     ("plan",     "План качества № (ED-QP-…)", "ED-QP-ELOX-PROM-08-2026", 46),
     ("contract", "Договор № … от …", "ЭП-100/24 от 30.05.2024", 46),
-    ("psi_start", "Номер ПСИ начальный (1hhg), напр. 13", "13", 12),
 ]
 SETTINGS_FILE = "elox_labels_settings.json"
 
@@ -1033,8 +1056,8 @@ class App(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title(APP_TITLE)
-        self.geometry("920x760")
-        self.minsize(880, 720)
+        self.geometry("940x760")
+        self.minsize(900, 720)
         self.records, self.xls_path = [], None
         self.vars = {}
         self._build()
@@ -1079,29 +1102,36 @@ class App(tk.Tk):
         self.show_doc = tk.BooleanVar(value=True)
         ttk.Checkbutton(f_opt, text="Отображать код документа внизу листа (рамка)",
                         variable=self.show_doc).pack(side="left", padx=(18, 0))
-        self.sort_code = tk.BooleanVar(value=False)
+        self.sort_by_code = tk.BooleanVar(value=True)
         ttk.Checkbutton(f_opt, text="Сортировать по коду",
-                        variable=self.sort_code).pack(side="left", padx=(18, 0))
+                        variable=self.sort_by_code).pack(side="left", padx=(18, 0))
+
+        f_opt2 = ttk.Frame(self)
+        f_opt2.pack(fill="x", padx=10, pady=2)
+        ttk.Label(f_opt2, text="ПСИ-1483/26- № (начало нумерации):").pack(side="left")
+        self.psi_start = tk.StringVar(value="013")
+        ttk.Entry(f_opt2, textvariable=self.psi_start, width=8).pack(side="left", padx=6)
 
         f_btn = ttk.Frame(self)
         f_btn.pack(fill="x", padx=10, pady=6)
-        self.btn_ru = ttk.Button(f_btn, text="Русские версии", command=lambda: self.generate("ru"))
-        self.btn_ru.pack(side="left", expand=True, fill="x", padx=(0, 5), ipady=6)
-        self.btn_en = ttk.Button(f_btn, text="Английские версии", command=lambda: self.generate("en"))
-        self.btn_en.pack(side="left", expand=True, fill="x", padx=(5, 0), ipady=6)
+        self.btn_ru = ttk.Button(f_btn, text="Русские версии", command=lambda: self.generate("ru", "label"))
+        self.btn_ru.pack(side="left", expand=True, fill="x", padx=(0, 5), ipady=8)
+        self.btn_en = ttk.Button(f_btn, text="Английские версии", command=lambda: self.generate("en", "label"))
+        self.btn_en.pack(side="left", expand=True, fill="x", padx=(5, 0), ipady=8)
+
         f_btn2 = ttk.Frame(self)
         f_btn2.pack(fill="x", padx=10, pady=(0, 6))
-        self.btn_psi_ru = ttk.Button(f_btn2, text="ПСИ Рус.", command=lambda: self.generate_psi("ru"))
-        self.btn_psi_ru.pack(side="left", expand=True, fill="x", padx=(0, 5), ipady=6)
-        self.btn_psi_en = ttk.Button(f_btn2, text="ПСИ Англ.", command=lambda: self.generate_psi("en"))
-        self.btn_psi_en.pack(side="left", expand=True, fill="x", padx=(5, 0), ipady=6)
+        self.btn_psi_ru = ttk.Button(f_btn2, text="ПСИ Рус.", command=lambda: self.generate("ru", "psi"))
+        self.btn_psi_ru.pack(side="left", expand=True, fill="x", padx=(0, 5), ipady=8)
+        self.btn_psi_en = ttk.Button(f_btn2, text="ПСИ Англ.", command=lambda: self.generate("en", "psi"))
+        self.btn_psi_en.pack(side="left", expand=True, fill="x", padx=(5, 0), ipady=8)
 
         self.pb = ttk.Progressbar(self, mode="determinate")
         self.pb.pack(fill="x", padx=10, pady=(4, 2))
 
         f_log = ttk.LabelFrame(self, text="Журнал")
         f_log.pack(fill="both", expand=True, padx=10, pady=(2, 10))
-        self.log = tk.Text(f_log, height=10, wrap="word")
+        self.log = tk.Text(f_log, height=9, wrap="word")
         self.log.pack(side="left", fill="both", expand=True)
         sb = ttk.Scrollbar(f_log, command=self.log.yview)
         sb.pack(side="right", fill="y")
@@ -1142,22 +1172,21 @@ class App(tk.Tk):
         if not self.records:
             self.say("Нет подходящих строк. Проверьте номер начальной строки и столбцы E/G/H/J.")
 
-    def manual(self, need_psi=False):
+    def manual(self):
         m = {k: v.get().strip() for k, v in self.vars.items()}
         for key in ("safety", "seismic", "life", "shelf", "warranty", "plan", "contract"):
             if not m[key]:
                 raise ValueError(f"Не заполнено поле: {key}")
-        if need_psi:
-            if not m["psi_start"].isdigit():
-                raise ValueError("Поле «Номер ПСИ начальный» должно содержать целое число")
         m["show_doc"] = bool(self.show_doc.get())
+        m["sort_by_code"] = bool(self.sort_by_code.get())
+        digits = re.sub(r"\D", "", self.psi_start.get()) or "0"
+        m["psi_start"] = int(digits)
         return m
 
-    def _prepare(self, lang):
-        recs = sorted_records(self.records, self.sort_code.get())
-        return recs
+    def ordered(self, man):
+        return order_records(self.records, man["sort_by_code"])
 
-    def generate(self, lang):
+    def generate(self, lang, kind):
         if not self.records:
             messagebox.showwarning("Нет данных", "Сначала загрузите .xls файл.")
             return
@@ -1166,123 +1195,101 @@ class App(tk.Tk):
         except ValueError as e:
             messagebox.showwarning("Проверьте поля", str(e))
             return
-        recs = self._prepare(lang)
+        ordered = self.ordered(man)
         stamp = datetime.datetime.now().strftime("%Y-%m-%d_%H%M%S")
         suffix = "RU" if lang == "ru" else "EN"
         targets = []
-        if self.separate.get():
-            folder = filedialog.askdirectory(title="Папка для PDF-файлов")
-            if not folder:
-                return
-            for i, rec in enumerate(recs, 1):
-                safe_tail = re.sub(r'[\\/:*?"<>|]', "_", rec["tail"])
-                fname = f"{rec['kks']}_{safe_tail}.pdf"
-                targets.append((os.path.join(folder, fname), [rec], i))
+        if kind == "label":
+            if self.separate.get():
+                folder = filedialog.askdirectory(title="Папка для PDF-файлов")
+                if not folder:
+                    return
+                for i, rec in enumerate(ordered, 1):
+                    safe_tail = re.sub(r'[\\/:*?"<>|]', "_", rec["tail"])
+                    fname = f"{rec['kks']}_{safe_tail}.pdf"
+                    targets.append((os.path.join(folder, fname), [("label", [rec], i)]))
+            else:
+                path = filedialog.asksaveasfilename(
+                    title="Сохранить PDF", defaultextension=".pdf",
+                    initialfile=f"Этикетки_{suffix}_{stamp}.pdf",
+                    filetypes=[("PDF", "*.pdf")])
+                if not path:
+                    return
+                targets.append((path, [("label", ordered, 0)]))
         else:
-            path = filedialog.asksaveasfilename(
-                title="Сохранить PDF", defaultextension=".pdf",
-                initialfile=f"Этикетки_{suffix}_{stamp}.pdf",
-                filetypes=[("PDF", "*.pdf")])
-            if not path:
-                return
-            targets.append((path, recs, 1))
+            pages = paginate_psi(ordered, man["sort_by_code"])
+            if self.separate.get():
+                folder = filedialog.askdirectory(title="Папка для PDF-файлов ПСИ")
+                if not folder:
+                    return
+                for i, pg in enumerate(pages, 1):
+                    num = man["psi_start"] + i - 1
+                    fname = f"PSI-1483-26-{num:03d}.pdf"
+                    targets.append((os.path.join(folder, fname), [("psi", [pg], i)]))
+            else:
+                path = filedialog.asksaveasfilename(
+                    title="Сохранить PDF", defaultextension=".pdf",
+                    initialfile=f"PSI_{suffix}_{stamp}.pdf",
+                    filetypes=[("PDF", "*.pdf")])
+                if not path:
+                    return
+                targets.append((path, [("psi", pages, 0)]))
 
         self._save_settings()
-        self._buttons(False)
-        total = sum(len(t[1]) for t in targets)
-        self.pb.configure(value=0, maximum=total)
-        self.say(f"\nГенерация этикеток ({suffix}): листов {total}, файлов {len(targets)}…")
-
-        def work():
-            done = 0
-            try:
-                for path, rlist, off in targets:
-                    def prog(i):
-                        self.after(0, lambda v=done + i: self.pb.configure(value=v))
-                    if off == 1 and not self.separate.get():
-                        make_pdf(path, rlist, man, lang, progress=prog)
-                    else:
-                        make_pdf(path, rlist, man, lang, progress=prog, page_off=off) if False else \
-                            _make_pdf_off(path, rlist, man, lang, off, prog)
-                    done += len(rlist)
-                self.after(0, lambda: self._done([t[0] for t in targets]))
-            except Exception as e:
-                tb = traceback.format_exc()
-                self.after(0, lambda: self._fail(str(e), tb))
-
-        threading.Thread(target=work, daemon=True).start()
-
-    def generate_psi(self, lang):
-        if not self.records:
-            messagebox.showwarning("Нет данных", "Сначала загрузите .xls файл.")
-            return
-        try:
-            man = self.manual(need_psi=True)
-        except ValueError as e:
-            messagebox.showwarning("Проверьте поля", str(e))
-            return
-        recs = self._prepare(lang)
-        pages = [recs[i:i + 10] for i in range(0, len(recs), 10)]
-        stamp = datetime.datetime.now().strftime("%Y-%m-%d_%H%M%S")
-        suffix = "RU" if lang == "ru" else "EN"
-        targets = []
-        if self.separate.get():
-            folder = filedialog.askdirectory(title="Папка для PDF-файлов ПСИ")
-            if not folder:
-                return
-            for i, pg in enumerate(pages):
-                num = f"{int(man['psi_start']) + i:03d}"
-                targets.append((os.path.join(folder, f"PSI-1483-26-{num}_{suffix}.pdf"), [pg], i))
-        else:
-            path = filedialog.asksaveasfilename(
-                title="Сохранить ПСИ", defaultextension=".pdf",
-                initialfile=f"Протокол_ПСИ_{suffix}_{stamp}.pdf",
-                filetypes=[("PDF", "*.pdf")])
-            if not path:
-                return
-            targets.append((path, pages, 0))
-
-        self._save_settings()
-        self._buttons(False)
-        total = sum(len(t[1]) for t in targets)
-        self.pb.configure(value=0, maximum=total)
-        self.say(f"\nГенерация ПСИ ({suffix}): страниц {total}, файлов {len(targets)}…")
-
-        def work():
-            done = 0
-            try:
-                for path, plist, off in targets:
-                    def prog(i):
-                        self.after(0, lambda v=done + i: self.pb.configure(value=v))
-                    make_psi_pdf(path, plist, man, lang, progress=prog, page_off=off)
-                    done += len(plist)
-                self.after(0, lambda: self._done([t[0] for t in targets]))
-            except Exception as e:
-                tb = traceback.format_exc()
-                self.after(0, lambda: self._fail(str(e), tb))
-
-        threading.Thread(target=work, daemon=True).start()
-
-    def _buttons(self, on):
-        st = "!disabled" if on else "disabled"
         for b in (self.btn_ru, self.btn_en, self.btn_psi_ru, self.btn_psi_en):
-            b.state([st])
+            b.state(["disabled"])
+        total = sum(len(pp) for _, items in targets for _, pp, _ in items)
+        self.pb.configure(value=0, maximum=max(total, 1))
+        self.say(f"\nГенерация ({suffix}, {kind}): страниц {total}, файлов {len(targets)}…")
 
-    def _done(self, paths):
-        self._buttons(True)
-        self.pb.configure(value=self.pb["maximum"])
-        for p in paths[:10]:
-            self.say("✔ " + p)
-        if len(paths) > 10:
-            self.say(f"… всего файлов: {len(paths)}")
-        if paths and messagebox.askyesno("Готово", f"Создано файлов: {len(paths)}.\nОткрыть результат?"):
+        def work():
+            done = 0
             try:
-                os.startfile(paths[0])  # noqa
+                for path, items in targets:
+                    if items[0][0] == "label":
+                        recs = items[0][1]
+                        base = items[0][2]
+                        if base:
+                            def prog(i):
+                                self.after(0, lambda v=base - 1 + 1: self.pb.configure(value=v))
+                            make_labels_pdf(path, recs, man, lang,
+                                            progress=lambda i: self.after(0, lambda v=base: self.pb.configure(value=v)))
+                        else:
+                            def prog(i):
+                                self.after(0, lambda v=done + i: self.pb.configure(value=v))
+                            make_labels_pdf(path, recs, man, lang, progress=prog)
+                        done += len(recs)
+                    else:
+                        pages = items[0][1]
+                        def prog(i):
+                            self.after(0, lambda v=done + i: self.pb.configure(value=v))
+                        make_psi_pdf(path, pages, man, lang, progress=prog)
+                        done += len(pages)
+                self.after(0, lambda: self._done(targets))
+            except Exception as e:
+                tb = traceback.format_exc()
+                self.after(0, lambda: self._fail(str(e), tb))
+
+        threading.Thread(target=work, daemon=True).start()
+
+    def _done(self, targets):
+        for b in (self.btn_ru, self.btn_en, self.btn_psi_ru, self.btn_psi_en):
+            b.state(["!disabled"])
+        self.pb.configure(value=self.pb["maximum"])
+        for p, _ in targets[:10]:
+            self.say("✔ " + p)
+        if len(targets) > 10:
+            self.say(f"… всего файлов: {len(targets)}")
+        first = targets[0][0]
+        if messagebox.askyesno("Готово", f"Создано файлов: {len(targets)}.\nОткрыть результат?"):
+            try:
+                os.startfile(first)  # noqa
             except Exception:
-                subprocess.Popen(["explorer", os.path.dirname(paths[0])])
+                subprocess.Popen(["explorer", os.path.dirname(first)])
 
     def _fail(self, msg, tb):
-        self._buttons(True)
+        for b in (self.btn_ru, self.btn_en, self.btn_psi_ru, self.btn_psi_en):
+            b.state(["!disabled"])
         self.say("ОШИБКА: " + tb)
         messagebox.showerror("Ошибка", msg)
 
@@ -1300,7 +1307,8 @@ class App(tk.Tk):
         data["start_row"] = self.start_row.get()
         data["separate"] = self.separate.get()
         data["show_doc"] = self.show_doc.get()
-        data["sort_code"] = self.sort_code.get()
+        data["sort_by_code"] = self.sort_by_code.get()
+        data["psi_start"] = self.psi_start.get()
         try:
             with open(self._settings_path(), "w", encoding="utf-8") as f:
                 json.dump(data, f, ensure_ascii=False, indent=2)
@@ -1317,40 +1325,14 @@ class App(tk.Tk):
             self.start_row.set(int(data.get("start_row", START_ROW_DEFAULT)))
             self.separate.set(bool(data.get("separate", False)))
             self.show_doc.set(bool(data.get("show_doc", True)))
-            self.sort_code.set(bool(data.get("sort_code", False)))
+            self.sort_by_code.set(bool(data.get("sort_by_code", True)))
+            self.psi_start.set(str(data.get("psi_start", "013")))
         except Exception:
             pass
 
     def _on_close(self):
         self._save_settings()
         self.destroy()
-
-
-def _make_pdf_off(path, recs, man, lang, off, prog):
-    """один лист в отдельном файле: номер страницы = порядковый номер в общем списке"""
-    c = canvas.Canvas(path, pagesize=landscape(A4))
-    rec = recs[0]
-    size = 10.0
-    for fs in (10.0, 9.5, 9.0, 8.5, 8.0, 7.5, 7.0):
-        size = fs
-        if render_label(c, rec, man, lang, fs=fs, dry=True, page_no=off) <= AVAIL:
-            break
-    render_label(c, rec, man, lang, fs=size, dry=False, page_no=off)
-    c.showPage()
-    c.save()
-    prog(1)
-
-
-def make_psi_pdf(path, pages, man, lang, progress=None, page_off=0):
-    c = canvas.Canvas(path, pagesize=A4)
-    c.setTitle("ПСИ / PSI " + ("RU" if lang == "ru" else "EN"))
-    c.setAuthor("ELOX-PROM JSC")
-    for i, rows in enumerate(pages):
-        render_psi_page(c, rows, page_off + i, man, lang)
-        c.showPage()
-        if progress:
-            progress(i + 1)
-    c.save()
 
 
 def main():
